@@ -1,6 +1,6 @@
 {
   "name": "Quiz Frontend Agent",
-  "description": "Interactive quiz frontend that provides user interface for quiz creation, display, and taking. Can orchestrate quiz generation with backend agents.",
+  "description": "Interactive quiz frontend with built-in A2A Protocol orchestrator. Provides user interface for quiz creation, display, and taking. Can orchestrate quiz generation with backend agents and manage multi-agent workflows.",
   "protocolVersion": "0.3.0",
   "url": "http://localhost:3000",
   "provider": {
@@ -12,7 +12,10 @@
   "capabilities": {
     "streaming": true,
     "pushNotifications": true,
-    "stateTransitionHistory": true
+    "stateTransitionHistory": true,
+    "agentDiscovery": true,
+    "workflowManagement": true,
+    "orchestration": true
   },
   "authentication": { "schemes": [], "credentials": null },
   "defaultInputModes": ["application/json", "text/plain"],
@@ -78,6 +81,54 @@
             "target_agent": "quiz-backend"
           },
           "output": { "orchestration": "initiated", "status": "coordinating" }
+        }
+      ]
+    },
+    {
+      "id": "discover_agents",
+      "name": "Discover Agents",
+      "description": "Discovers and catalogs available A2A agents in the network",
+      "action": "/api/orchestrator",
+      "tags": ["discovery", "network", "agents"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        {
+          "input": { "action": "discover_agents", "network_scan": true },
+          "output": { "agents": [], "count": 0 }
+        }
+      ]
+    },
+    {
+      "id": "monitor_system_health",
+      "name": "Monitor System Health",
+      "description": "Monitors health and status of all connected agents and services",
+      "action": "/api/orchestrator",
+      "tags": ["monitoring", "health", "system"],
+      "inputModes": ["application/json"],
+      "outputModes": ["application/json"],
+      "examples": [
+        {
+          "input": { "action": "monitor_system_health", "check_all": true },
+          "output": { "agents": [], "overall_health": "healthy" }
+        }
+      ]
+    },
+    {
+      "id": "orchestrator_chat",
+      "name": "Orchestrator Chat",
+      "description": "Interactive chat interface for orchestrator management and workflow execution",
+      "action": "/api/orchestrator",
+      "tags": ["chat", "orchestration", "interactive"],
+      "inputModes": ["application/json", "text/plain"],
+      "outputModes": ["application/json"],
+      "examples": [
+        {
+          "input": {
+            "action": "orchestrator_chat",
+            "message": "Generate a quiz about AI"
+          },
+          "output": { "response": "Workflow initiated", "status": "processing" }
         }
       ]
     }

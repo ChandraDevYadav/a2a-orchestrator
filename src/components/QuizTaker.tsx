@@ -45,7 +45,9 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
   const handleNextQuestion = () => {
     if (!selectedAnswer) return;
 
-    const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+    // Extract the letter from the correct answer (e.g., "A. Something" -> "A")
+    const correctAnswerLetter = currentQuestion.correct_answer.charAt(0);
+    const isCorrect = selectedAnswer === correctAnswerLetter;
     const result: QuizResult = {
       questionIndex: currentQuestionIndex,
       selectedAnswer,

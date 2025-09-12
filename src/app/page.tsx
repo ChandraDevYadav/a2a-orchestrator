@@ -14,16 +14,33 @@ import { Progress } from "@/components/ui/progress";
 import { QuizForm } from "@/components/QuizForm";
 import { QuizChat } from "@/components/QuizChat";
 import { QuizDisplay } from "@/components/QuizDisplay";
+import { QuizDataGrid } from "@/components/QuizDataGrid";
+import { AGGridExample } from "@/components/AGGridExample";
 import { QuizTaker } from "@/components/QuizTaker";
 import { A2AAgentInfo } from "@/components/A2AAgentInfo";
+import { A2AConfiguration } from "@/components/A2AConfiguration";
+import { OrchestratorDashboard } from "@/components/OrchestratorDashboard";
+import { OrchestratorChat } from "@/components/OrchestratorChat";
+import { MCPInterface } from "@/components/MCPInterface";
+import { SimpleChatInterface } from "@/components/SimpleChatInterface";
 import { QuizData, QuizSession } from "@/types/quiz";
-import { Brain, BookOpen, Trophy, Zap, Network } from "lucide-react";
+import {
+  Brain,
+  BookOpen,
+  Trophy,
+  Zap,
+  Network,
+  MessageSquare,
+} from "lucide-react";
 
 export default function Home() {
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [viewMode, setViewMode] = useState<
+    "display" | "grid" | "example" | "orchestrator" | "chat" | "mcp" | "simple"
+  >("simple");
 
   const handleQuizGenerated = (data: QuizData) => {
     setQuizData(data);
@@ -55,117 +72,109 @@ export default function Home() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-4">
-      {/* Features */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="text-center">
-          <CardHeader>
-            <Zap className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-            <CardTitle className="text-lg">AI-Powered</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>
-              Advanced AI generates 20 high-quality multiple-choice questions
-            </CardDescription>
-          </CardContent>
-        </Card>
-
-        <Card className="text-center">
-          <CardHeader>
-            <BookOpen className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <CardTitle className="text-lg">Smart Content</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>
-              Focuses on core teaching content, avoiding irrelevant details
-            </CardDescription>
-          </CardContent>
-        </Card>
-
-        <Card className="text-center">
-          <CardHeader>
-            <Trophy className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-            <CardTitle className="text-lg">Interactive</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>
-              Take quizzes immediately with instant scoring and feedback
-            </CardDescription>
-          </CardContent>
-        </Card>
-      </div> */}
-
-      {/* A2A Agent Information */}
-      {/* <A2AAgentInfo /> */}
-
-      {/* Chat Interface Layout */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Interface Toggle */}
       {!quizData && !quizSession && (
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Side - Welcome/Instructions */}
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="h-6 w-6 text-blue-600" />
-                    AI Quiz Generator
-                  </CardTitle>
-                  <CardDescription>
-                    Transform any text content into comprehensive
-                    multiple-choice quizzes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-blue-50 rounded-lg">
-                      <Zap className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-                      <h3 className="font-semibold mb-1">AI-Powered</h3>
-                      <p className="text-sm text-gray-600">
-                        Advanced AI generates 20 high-quality questions
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-green-50 rounded-lg">
-                      <BookOpen className="h-8 w-8 text-green-500 mx-auto mb-2" />
-                      <h3 className="font-semibold mb-1">Smart Content</h3>
-                      <p className="text-sm text-gray-600">
-                        Focuses on core concepts and key information
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <Trophy className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-                      <h3 className="font-semibold mb-1">Interactive</h3>
-                      <p className="text-sm text-gray-600">
-                        Take quizzes with instant scoring and feedback
-                      </p>
-                    </div>
-                  </div>
+        <div className="fixed top-4 right-4 z-10">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setViewMode(viewMode === "simple" ? "mcp" : "simple")
+            }
+            className="bg-white shadow-lg"
+          >
+            {viewMode === "simple" ? "Advanced Mode" : "Simple Mode"}
+          </Button>
+        </div>
+      )}
 
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-semibold mb-2">How it works:</h4>
-                    <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
-                      <li>Paste your text content in the chat on the right</li>
-                      <li>
-                        Our AI analyzes the content and identifies key concepts
-                      </li>
-                      <li>
-                        Generate 20 multiple-choice questions with varying
-                        difficulty
-                      </li>
-                      <li>Review and take the quiz immediately</li>
-                    </ol>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+      {/* Simple Interface - Default View */}
+      {!quizData && !quizSession && viewMode === "simple" && (
+        <SimpleChatInterface
+          onQuizGenerated={handleQuizGenerated}
+          isGenerating={isGenerating}
+          setIsGenerating={setIsGenerating}
+          setGenerationProgress={setGenerationProgress}
+        />
+      )}
 
-            {/* Right Side - Chat Interface */}
-            <div className="lg:col-span-1">
-              <QuizChat
-                onQuizGenerated={handleQuizGenerated}
-                isGenerating={isGenerating}
-                setIsGenerating={setIsGenerating}
-                setGenerationProgress={setGenerationProgress}
-              />
+      {/* Advanced Interface Options */}
+      {!quizData && !quizSession && viewMode !== "simple" && (
+        <div className="container mx-auto px-4 py-4">
+          {/* A2A Configuration */}
+          <div className="max-w-4xl mx-auto mb-6">
+            <A2AConfiguration />
+          </div>
+
+          {/* Advanced Chat Interface Layout */}
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Left Side - Welcome/Instructions */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="h-6 w-6 text-blue-600" />
+                      AI Quiz Generator with MCP
+                    </CardTitle>
+                    <CardDescription>
+                      Transform any text content into comprehensive
+                      multiple-choice quizzes using Message Control Protocol
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center p-4 bg-blue-50 rounded-lg">
+                        <Zap className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                        <h3 className="font-semibold mb-1">MCP Tools</h3>
+                        <p className="text-sm text-gray-600">
+                          Message Control Protocol enables advanced tool
+                          integration
+                        </p>
+                      </div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg">
+                        <BookOpen className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                        <h3 className="font-semibold mb-1">
+                          Agent Coordination
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          Multiple AI agents work together seamlessly
+                        </p>
+                      </div>
+                      <div className="text-center p-4 bg-purple-50 rounded-lg">
+                        <Trophy className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                        <h3 className="font-semibold mb-1">Smart Workflows</h3>
+                        <p className="text-sm text-gray-600">
+                          Orchestrated processes for complex tasks
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-semibold mb-2">How MCP works:</h4>
+                      <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600">
+                        <li>Describe your task using natural language</li>
+                        <li>
+                          MCP automatically selects appropriate tools and agents
+                        </li>
+                        <li>Agents coordinate to process your request</li>
+                        <li>Get intelligent results with full transparency</li>
+                      </ol>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Side - Chat Interface */}
+              <div className="lg:col-span-3">
+                <QuizChat
+                  onQuizGenerated={handleQuizGenerated}
+                  isGenerating={isGenerating}
+                  setIsGenerating={setIsGenerating}
+                  setGenerationProgress={setGenerationProgress}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -207,14 +216,93 @@ export default function Home() {
                       {quizData.quiz_questions.length} questions ready
                     </CardDescription>
                   </div>
-                  <Button onClick={handleStartQuiz} size="lg">
-                    Start Quiz
-                  </Button>
+                  <div className="flex gap-2">
+                    <div className="flex gap-1">
+                      <Button
+                        variant={viewMode === "display" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("display")}
+                      >
+                        Cards
+                      </Button>
+                      <Button
+                        variant={viewMode === "grid" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("grid")}
+                      >
+                        Table
+                      </Button>
+                      <Button
+                        variant={viewMode === "example" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("example")}
+                      >
+                        Example
+                      </Button>
+                      <Button
+                        variant={
+                          viewMode === "orchestrator" ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setViewMode("orchestrator")}
+                      >
+                        <Network className="h-4 w-4 mr-1" />
+                        Dashboard
+                      </Button>
+                      <Button
+                        variant={viewMode === "chat" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("chat")}
+                      >
+                        <Brain className="h-4 w-4 mr-1" />
+                        Chat
+                      </Button>
+                      <Button
+                        variant={viewMode === "mcp" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("mcp")}
+                      >
+                        <Zap className="h-4 w-4 mr-1" />
+                        MCP
+                      </Button>
+                      <Button
+                        variant={viewMode === "simple" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setViewMode("simple")}
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        Simple
+                      </Button>
+                    </div>
+                    <Button onClick={handleStartQuiz} size="lg">
+                      Start Quiz
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
             </Card>
-            <div className="flex-1 overflow-y-auto">
-              <QuizDisplay quizData={quizData} />
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
+              {viewMode === "display" && <QuizDisplay quizData={quizData} />}
+              {viewMode === "grid" && <QuizDataGrid quizData={quizData} />}
+              {viewMode === "example" && <AGGridExample />}
+              {viewMode === "orchestrator" && <OrchestratorDashboard />}
+              {viewMode === "chat" && (
+                <OrchestratorChat
+                  onQuizGenerated={handleQuizGenerated}
+                  isGenerating={isGenerating}
+                  setIsGenerating={setIsGenerating}
+                  setGenerationProgress={setGenerationProgress}
+                />
+              )}
+              {viewMode === "mcp" && <MCPInterface />}
+              {viewMode === "simple" && (
+                <SimpleChatInterface
+                  onQuizGenerated={handleQuizGenerated}
+                  isGenerating={isGenerating}
+                  setIsGenerating={setIsGenerating}
+                  setGenerationProgress={setGenerationProgress}
+                />
+              )}
             </div>
           </div>
 

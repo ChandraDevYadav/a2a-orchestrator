@@ -34,7 +34,9 @@ export function QuizDisplay({ quizData }: QuizDisplayProps) {
               <div className="space-y-2">
                 {question.answers.map((answer, answerIndex) => {
                   const letter = String.fromCharCode(65 + answerIndex); // A, B, C, D, E
-                  const isCorrect = question.correct_answer === letter;
+                  // Extract the letter from the correct answer (e.g., "A. Something" -> "A")
+                  const correctAnswerLetter = question.correct_answer.charAt(0);
+                  const isCorrect = correctAnswerLetter === letter;
 
                   return (
                     <div

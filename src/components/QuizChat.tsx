@@ -34,12 +34,13 @@ export function QuizChat({
       id: "1",
       type: "bot",
       content:
-        "Hello! I can help you create quizzes from any text content. Just paste your content below and I'll generate 20 multiple-choice questions for you!",
+        "Hello! I'm your MCP-enabled AI Assistant. I can help you create quizzes from any text content using advanced tools and agent coordination. Just paste your content below and I'll generate 20 multiple-choice questions for you!",
       timestamp: new Date(),
     },
   ]);
   const [input, setInput] = useState("");
   const [wordCount, setWordCount] = useState(0);
+  const [progress, setProgress] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -65,7 +66,7 @@ export function QuizChat({
     isGenerating = false
   ) => {
     const newMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type,
       content,
       timestamp: new Date(),
@@ -97,23 +98,41 @@ export function QuizChat({
     const botMessageId = addMessage("bot", "", true);
 
     setIsGenerating(true);
+    setProgress(0);
     setGenerationProgress(0);
+
+    // Declare intervals outside try block for proper scope
+    let progressInterval: NodeJS.Timeout | null = null;
+    let progressUpdateInterval: NodeJS.Timeout | null = null;
 
     try {
       // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setGenerationProgress((prev) => {
+      progressInterval = setInterval(() => {
+        setProgress((prev) => {
           const newProgress = prev >= 90 ? 90 : prev + Math.random() * 15;
-          if (prev >= 90) {
+          if (prev >= 90 && progressInterval) {
             clearInterval(progressInterval);
           }
           return newProgress;
         });
       }, 500);
 
+      // Update generation progress separately to avoid setState during render
+      let currentProgress = 0;
+      progressUpdateInterval = setInterval(() => {
+        currentProgress =
+          currentProgress >= 90 ? 90 : currentProgress + Math.random() * 15;
+        setGenerationProgress(currentProgress);
+        if (currentProgress >= 90 && progressUpdateInterval) {
+          clearInterval(progressUpdateInterval);
+        }
+      }, 500);
+
       const response = await quizApiClient.generateQuiz(userInput);
 
-      clearInterval(progressInterval);
+      if (progressInterval) clearInterval(progressInterval);
+      if (progressUpdateInterval) clearInterval(progressUpdateInterval);
+      setProgress(100);
       setGenerationProgress(100);
 
       // Update bot message with success
@@ -128,6 +147,10 @@ export function QuizChat({
         onQuizGenerated(response.data);
       }, 500);
     } catch (error: any) {
+      // Clear intervals on error
+      if (progressInterval) clearInterval(progressInterval);
+      if (progressUpdateInterval) clearInterval(progressUpdateInterval);
+
       // Update bot message with error
       updateMessage(
         botMessageId,
@@ -138,6 +161,7 @@ export function QuizChat({
       );
     } finally {
       setIsGenerating(false);
+      setProgress(0);
       setGenerationProgress(0);
     }
   };
@@ -154,12 +178,12 @@ export function QuizChat({
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2">
           <Bot className="h-5 w-5" />
-          Quiz Assistant
+          MCP Assistant
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col p-0">
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -175,7 +199,7 @@ export function QuizChat({
               <div
                 className={`max-w-[80%] rounded-lg p-3 ${
                   message.type === "user"
-                    ? "bg-blue-600 text-white h-16 overflow-y-scroll"
+                    ? "bg-blue-600 text-white h-16 overflow-y-scroll scrollbar-hide"
                     : "bg-gray-100 text-gray-900"
                 }`}
               >
@@ -208,7 +232,7 @@ export function QuizChat({
               value={input}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="min-h-[80px] resize-none"
+              className="min-h-[80px] resize-none scrollbar-hide"
               disabled={isGenerating}
             />
             <Button
