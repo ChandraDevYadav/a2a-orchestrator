@@ -6,80 +6,176 @@ import {
   QuizGenerationResponse,
 } from "@/types/quiz";
 
-// Simplified A2A Client for communicating with backend quiz agent
-// This version works in the browser environment
+/**
+ * Browser-Compatible A2A Client
+ * Provides A2A protocol communication with SSR safety
+ */
 export class QuizA2AClient {
   private backendAgentUrl: string;
+  private isClientSide: boolean = false;
 
   constructor(backendAgentUrl: string = "http://localhost:4001") {
     this.backendAgentUrl = backendAgentUrl;
+
+    // Check if we're on the client side
+    if (typeof window !== "undefined") {
+      this.isClientSide = true;
+    }
   }
 
   /**
-   * Generate quiz using A2A protocol by orchestrating with backend agent
+   * Generate quiz using A2A protocol with REST fallback
    */
   async generateQuiz(input: string): Promise<QuizGenerationResponse> {
     try {
-      // For now, use REST API with A2A-style request format
-      // This simulates A2A protocol communication
-      const a2aRequest = {
-        skillId: "generate_quiz",
-        input: {
-          parts: [
-            {
-              kind: "text",
-              text: input,
-            },
-          ],
-        },
-      };
+      console.log("Starting quiz generation...");
 
-      // Send A2A-style request to backend
-      const response = await fetch(
-        `${this.backendAgentUrl}/api/actions/generate-quiz`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ input }),
+      if (this.isClientSide) {
+        // Try A2A protocol first on client side
+        try {
+          return await this.generateQuizWithA2A(input);
+        } catch (a2aError) {
+          console.log("A2A failed, falling back to REST:", a2aError);
+          return await this.generateQuizWithREST(input);
         }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
-        );
+      } else {
+        // Server side - use REST API
+        return await this.generateQuizWithREST(input);
       }
-
-      const result = await response.json();
-
-      // Return in A2A format
-      return {
-        data: result.data || result,
-      };
     } catch (error) {
-      console.error("A2A quiz generation failed:", error);
+      console.error("Quiz generation failed:", error);
       throw new Error(
-        `Failed to generate quiz via A2A: ${
+        `Failed to generate quiz: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
     }
   }
 
+  private async generateQuizWithA2A(
+    input: string
+  ): Promise<QuizGenerationResponse> {
+    if (!this.isClientSide) {
+      throw new Error("A2A client only available on client side");
+    }
+
+    // Dynamic import to avoid SSR issues
+    const { A2AClient } = await import("@a2a-js/sdk/client");
+    const a2aClient = new A2AClient();
+
+    const request = {
+      skillId: "generate-quiz",
+      input: {
+        parts: [
+          {
+            kind: "text",
+            text: input,
+          },
+        ],
+      },
+    };
+
+    // Submit task to backend agent using A2A SDK
+    const task = await a2aClient.submitTask(this.backendAgentUrl, request);
+    console.log("A2A task submitted:", task.id);
+
+    // Wait for task completion using A2A SDK
+    const completedTask = await a2aClient.waitForTaskCompletion(
+      this.backendAgentUrl,
+      task.id
+    );
+    console.log("A2A task completed:", completedTask.status.state);
+
+    if (completedTask.status.state === "completed" && completedTask.artifacts) {
+      // Extract quiz data from A2A artifacts
+      const quizArtifact = completedTask.artifacts.find(
+        (artifact: any) => artifact.name === "quiz.json"
+      );
+
+      if (quizArtifact && quizArtifact.parts) {
+        const quizData = JSON.parse(quizArtifact.parts[0].text);
+        return {
+          data: quizData,
+        };
+      }
+    }
+
+    throw new Error("Task did not complete successfully or no quiz data found");
+  }
+
+  private async generateQuizWithREST(
+    input: string
+  ): Promise<QuizGenerationResponse> {
+    const response = await fetch(
+      `${this.backendAgentUrl}/api/actions/generate-quiz`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    const result = await response.json();
+    return {
+      data: result.data || result,
+    };
+  }
+
   /**
-   * Generate quiz with usage tracking using A2A protocol
+   * Generate quiz with usage tracking
    */
   async generateQuizWithUsage(input: string): Promise<QuizGenerationResponse> {
-    // For now, use the same method as generateQuiz
-    // In a full implementation, you might want to use a different skill or add usage tracking
     return this.generateQuiz(input);
   }
 
   /**
-   * Check health of backend agent using A2A protocol
+   * Submit a custom task to the backend agent
+   */
+  async submitCustomTask(skillId: string, input: any): Promise<any> {
+    try {
+      if (this.isClientSide) {
+        // Try A2A first
+        try {
+          const { A2AClient } = await import("@a2a-js/sdk/client");
+          const a2aClient = new A2AClient();
+
+          const request = {
+            skillId,
+            input,
+          };
+
+          const task = await a2aClient.submitTask(
+            this.backendAgentUrl,
+            request
+          );
+          return await a2aClient.waitForTaskCompletion(
+            this.backendAgentUrl,
+            task.id
+          );
+        } catch (a2aError) {
+          console.log("A2A custom task failed, using REST fallback");
+          throw new Error("Custom tasks require A2A protocol");
+        }
+      } else {
+        throw new Error("Custom tasks not available on server side");
+      }
+    } catch (error) {
+      console.error("Failed to submit custom task:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check health of backend agent
    */
   async checkHealth(): Promise<{
     status: string;
@@ -87,19 +183,87 @@ export class QuizA2AClient {
     message?: string;
   }> {
     try {
-      // Try to get agent card to check if agent is alive
-      const response = await fetch(
-        `${this.backendAgentUrl}/.well-known/agent-card.json`
-      );
+      if (this.isClientSide) {
+        // Try A2A first
+        try {
+          const { A2AClient } = await import("@a2a-js/sdk/client");
+          const a2aClient = new A2AClient();
 
+          const agentCard = await a2aClient.getAgentCard(this.backendAgentUrl);
+
+          return {
+            status: "ok",
+            agent: agentCard.name,
+            message: "Backend agent is healthy (A2A)",
+          };
+        } catch (a2aError) {
+          console.log("A2A health check failed, using REST fallback");
+          // Fall through to REST
+        }
+      }
+
+      // REST API fallback
+      const response = await fetch(`${this.backendAgentUrl}/health`);
       if (response.ok) {
-        const agentCard = await response.json();
-        return { status: "ok", agent: agentCard.name };
+        const data = await response.json();
+        return {
+          status: "ok",
+          message: "Backend agent is healthy (REST)",
+        };
       } else {
-        return { status: "error", message: "Agent card not accessible" };
+        throw new Error(`Health check failed: ${response.status}`);
       }
     } catch (error) {
-      console.error("A2A health check failed:", error);
+      console.error("Health check failed:", error);
+      return {
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Check health of frontend agent
+   */
+  async checkFrontendHealth(): Promise<{
+    status: string;
+    agent?: string;
+    message?: string;
+  }> {
+    try {
+      if (this.isClientSide) {
+        // Try A2A first
+        try {
+          const { A2AClient } = await import("@a2a-js/sdk/client");
+          const a2aClient = new A2AClient();
+
+          const frontendUrl = "http://localhost:3000";
+          const agentCard = await a2aClient.getAgentCard(frontendUrl);
+
+          return {
+            status: "ok",
+            agent: agentCard.name,
+            message: "Frontend agent is healthy (A2A)",
+          };
+        } catch (a2aError) {
+          console.log("A2A frontend health check failed, using REST fallback");
+          // Fall through to REST
+        }
+      }
+
+      // REST API fallback
+      const response = await fetch("http://localhost:3000/api/health");
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          status: "ok",
+          message: "Frontend agent is healthy (REST)",
+        };
+      } else {
+        throw new Error(`Health check failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Frontend health check failed:", error);
       return {
         status: "error",
         message: error instanceof Error ? error.message : "Unknown error",
@@ -112,6 +276,20 @@ export class QuizA2AClient {
    */
   async getBackendAgentInfo() {
     try {
+      if (this.isClientSide) {
+        // Try A2A first
+        try {
+          const { A2AClient } = await import("@a2a-js/sdk/client");
+          const a2aClient = new A2AClient();
+
+          return await a2aClient.getAgentCard(this.backendAgentUrl);
+        } catch (a2aError) {
+          console.log("A2A agent info failed, using REST fallback");
+          // Fall through to REST
+        }
+      }
+
+      // REST API fallback
       const response = await fetch(
         `${this.backendAgentUrl}/.well-known/agent-card.json`
       );

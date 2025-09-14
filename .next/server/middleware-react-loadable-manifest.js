@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"lib\\\\a2a-client.ts -> @a2a-js/sdk/client\":{\"id\":\"lib\\\\a2a-client.ts -> @a2a-js/sdk/client\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_a2a-js_sdk_dist_client_index_js.js\"]}}"

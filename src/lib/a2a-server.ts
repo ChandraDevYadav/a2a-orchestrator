@@ -1,30 +1,33 @@
 "use client";
 
-import {
-  AgentExecutor,
-  RequestContext,
-  ExecutionEventBus,
-} from "@a2a-js/sdk/server";
-import { TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from "@a2a-js/sdk";
-import agentCard from "../../agent-card.json";
-
 /**
- * Frontend Agent Executor - handles A2A protocol requests
+ * Browser-Compatible A2A Server
+ * Provides A2A server functionality with SSR safety
  */
-export class FrontendAgentExecutor implements AgentExecutor {
+export class FrontendAgentExecutor {
   async cancelTask(taskId: string): Promise<void> {
-    // Frontend tasks are typically short-lived, cancellation not critical
     console.log(`Cancelling frontend task: ${taskId}`);
   }
 
-  async execute(
-    requestContext: RequestContext,
-    eventBus: ExecutionEventBus
-  ): Promise<void> {
+  async execute(requestContext: any, eventBus: any): Promise<void> {
     const { taskId, contextId } = requestContext;
 
+    // Initialize the task status as "submitted"
+    const initial = {
+      kind: "task",
+      id: taskId,
+      contextId,
+      status: {
+        state: "submitted",
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    // Publish the initial task status
+    eventBus.publish(initial);
+
     // Access skillId and input through the request property
-    const incoming = (requestContext as any).request ?? {};
+    const incoming = requestContext.request ?? {};
     const skillId = incoming.skillId || "unknown";
     const input = incoming.input || {};
 
@@ -58,7 +61,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
       }
     } catch (error) {
       // Publish error status
-      const errorStatus: TaskStatusUpdateEvent = {
+      const errorStatus = {
         kind: "status-update",
         taskId,
         contextId,
@@ -77,10 +80,10 @@ export class FrontendAgentExecutor implements AgentExecutor {
     taskId: string,
     contextId: string,
     input: any,
-    eventBus: ExecutionEventBus
+    eventBus: any
   ) {
     // Create quiz interface artifact
-    const artifact: TaskArtifactUpdateEvent = {
+    const artifact = {
       kind: "artifact-update",
       taskId,
       contextId,
@@ -89,7 +92,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
         name: "quiz_creation_interface.json",
         parts: [
           {
-            kind: "text" as const,
+            kind: "text",
             text: JSON.stringify({
               interface: "quiz_creation_form",
               status: "ready",
@@ -104,7 +107,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
     eventBus.publish(artifact);
 
     // Complete task
-    const statusUpdate: TaskStatusUpdateEvent = {
+    const statusUpdate = {
       kind: "status-update",
       taskId,
       contextId,
@@ -119,10 +122,10 @@ export class FrontendAgentExecutor implements AgentExecutor {
     taskId: string,
     contextId: string,
     input: any,
-    eventBus: ExecutionEventBus
+    eventBus: any
   ) {
     // Display quiz artifact
-    const artifact: TaskArtifactUpdateEvent = {
+    const artifact = {
       kind: "artifact-update",
       taskId,
       contextId,
@@ -131,7 +134,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
         name: "quiz_display_interface.json",
         parts: [
           {
-            kind: "text" as const,
+            kind: "text",
             text: JSON.stringify({
               interface: "quiz_display",
               status: "rendered",
@@ -147,7 +150,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
     eventBus.publish(artifact);
 
     // Complete task
-    const statusUpdate: TaskStatusUpdateEvent = {
+    const statusUpdate = {
       kind: "status-update",
       taskId,
       contextId,
@@ -162,10 +165,10 @@ export class FrontendAgentExecutor implements AgentExecutor {
     taskId: string,
     contextId: string,
     input: any,
-    eventBus: ExecutionEventBus
+    eventBus: any
   ) {
     // Take quiz artifact
-    const artifact: TaskArtifactUpdateEvent = {
+    const artifact = {
       kind: "artifact-update",
       taskId,
       contextId,
@@ -174,7 +177,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
         name: "quiz_taker_interface.json",
         parts: [
           {
-            kind: "text" as const,
+            kind: "text",
             text: JSON.stringify({
               interface: "quiz_taker",
               status: "active",
@@ -190,7 +193,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
     eventBus.publish(artifact);
 
     // Complete task
-    const statusUpdate: TaskStatusUpdateEvent = {
+    const statusUpdate = {
       kind: "status-update",
       taskId,
       contextId,
@@ -205,10 +208,10 @@ export class FrontendAgentExecutor implements AgentExecutor {
     taskId: string,
     contextId: string,
     input: any,
-    eventBus: ExecutionEventBus
+    eventBus: any
   ) {
     // Orchestration artifact
-    const artifact: TaskArtifactUpdateEvent = {
+    const artifact = {
       kind: "artifact-update",
       taskId,
       contextId,
@@ -217,7 +220,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
         name: "quiz_orchestration.json",
         parts: [
           {
-            kind: "text" as const,
+            kind: "text",
             text: JSON.stringify({
               orchestration: "initiated",
               status: "coordinating",
@@ -233,7 +236,7 @@ export class FrontendAgentExecutor implements AgentExecutor {
     eventBus.publish(artifact);
 
     // Complete task
-    const statusUpdate: TaskStatusUpdateEvent = {
+    const statusUpdate = {
       kind: "status-update",
       taskId,
       contextId,
@@ -245,5 +248,106 @@ export class FrontendAgentExecutor implements AgentExecutor {
   }
 }
 
-// Export the executor instance
+/**
+ * A2A Server Setup for Frontend Agent
+ * Creates proper A2A server components with SSR safety
+ */
+export class FrontendA2AServer {
+  private taskStore: any;
+  private executor: FrontendAgentExecutor;
+  private requestHandler: any;
+  private isRunning: boolean = false;
+
+  constructor() {
+    this.executor = new FrontendAgentExecutor();
+    // Initialize SDK components lazily
+    this.initializeComponents();
+  }
+
+  private async initializeComponents() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const sdk = await import("@a2a-js/sdk/server");
+      const agentCard = (await import("../../agent-card.json")).default;
+
+      this.taskStore = new sdk.InMemoryTaskStore();
+      this.requestHandler = new sdk.DefaultRequestHandler(
+        agentCard,
+        this.taskStore,
+        this.executor
+      );
+    } catch (error) {
+      console.error("Failed to initialize A2A server components:", error);
+    }
+  }
+
+  async start(): Promise<void> {
+    if (this.isRunning) {
+      console.log("A2A server is already running");
+      return;
+    }
+
+    this.isRunning = true;
+    console.log("Frontend A2A Agent initialized");
+    console.log(`Agent Card: http://localhost:3000/api/.well-known/agent-card`);
+    console.log(`Health Check: http://localhost:3000/api/health`);
+  }
+
+  async stop(): Promise<void> {
+    if (!this.isRunning) {
+      return;
+    }
+
+    this.isRunning = false;
+    console.log("Frontend A2A server stopped");
+  }
+
+  getRequestHandler(): any {
+    return this.requestHandler;
+  }
+
+  getTaskStore(): any {
+    return this.taskStore;
+  }
+
+  getExecutor(): FrontendAgentExecutor {
+    return this.executor;
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      port: 3000,
+      agentCardUrl: `http://localhost:3000/api/.well-known/agent-card`,
+      healthUrl: `http://localhost:3000/api/health`,
+      type: "Browser-Compatible A2A Server",
+    };
+  }
+}
+
+// Export singleton instance
 export const frontendAgentExecutor = new FrontendAgentExecutor();
+let frontendA2AServer: FrontendA2AServer | null = null;
+
+export function getFrontendA2AServer(): FrontendA2AServer {
+  if (!frontendA2AServer) {
+    frontendA2AServer = new FrontendA2AServer();
+  }
+  return frontendA2AServer;
+}
+
+export async function startFrontendA2AServer(): Promise<FrontendA2AServer> {
+  const server = getFrontendA2AServer();
+  await server.start();
+  return server;
+}
+
+export async function stopFrontendA2AServer(): Promise<void> {
+  if (frontendA2AServer) {
+    await frontendA2AServer.stop();
+    frontendA2AServer = null;
+  }
+}

@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
         result = orchestratorService.getAgent(data.url);
         break;
 
+      case "determine_agent_for_query":
+        result = orchestratorService.determineAgentForQuery(data.query);
+        break;
+
+      case "handle_general_mcp_query":
+        result = await orchestratorService.handleGeneralMCPQuery(data);
+        break;
+
       default:
         return NextResponse.json(
           { error: `Unknown action: ${action}` },

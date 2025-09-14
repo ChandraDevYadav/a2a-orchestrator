@@ -5,7 +5,7 @@ import {
   startFrontendA2AServer,
   stopFrontendA2AServer,
   getFrontendA2AServer,
-} from "@/lib/a2a-server-real";
+} from "@/lib/a2a-server";
 
 /**
  * Hook to initialize real A2A server for the frontend
@@ -28,8 +28,8 @@ export function useA2AServer() {
 
         console.log("Starting Frontend A2A Agent...");
 
-        // Start the real A2A server
-        const server = await startFrontendA2AServer(3000);
+        // Start the A2A server using SDK
+        const server = await startFrontendA2AServer();
 
         // Get server status
         const status = server.getStatus();
@@ -73,7 +73,7 @@ export function useA2AServer() {
       await stopFrontendA2AServer();
 
       // Start new server
-      const server = await startFrontendA2AServer(3000);
+      const server = await startFrontendA2AServer();
       const status = server.getStatus();
       setServerStatus(status);
       setIsInitialized(true);

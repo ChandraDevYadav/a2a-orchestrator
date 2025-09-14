@@ -52,6 +52,210 @@ export class NextJSOrchestratorService {
 
   constructor() {
     this.startAgentDiscovery();
+    this.initializeVirtualAgents();
+  }
+
+  /**
+   * Initialize virtual MCP agents that don't have physical endpoints
+   */
+  private initializeVirtualAgents() {
+    // Add the normal MCP agent as a virtual agent
+    const normalMCPAgent: AgentInfo = {
+      name: "General MCP Agent",
+      url: "virtual://normal-mcp-agent",
+      skills: [
+        "general-conversation",
+        "information-retrieval",
+        "task-assistance",
+      ],
+      status: "online",
+      lastSeen: new Date(),
+      capabilities: {
+        description:
+          "Handles general queries, conversations, and non-quiz related tasks",
+        type: "virtual",
+      },
+    };
+
+    this.agents.set("virtual://normal-mcp-agent", normalMCPAgent);
+  }
+
+  /**
+   * Determine which agent should handle a query based on content analysis
+   */
+  determineAgentForQuery(query: string): AgentInfo | null {
+    const lowerQuery = query.toLowerCase();
+
+    // Quiz-related queries go to backend agent
+    if (
+      lowerQuery.includes("quiz") ||
+      lowerQuery.includes("question") ||
+      lowerQuery.includes("test") ||
+      lowerQuery.includes("exam") ||
+      lowerQuery.includes("assessment") ||
+      lowerQuery.includes("multiple choice")
+    ) {
+      return this.agents.get("http://localhost:4001") || null;
+    }
+
+    // Workflow/orchestration queries go to frontend agent
+    if (
+      lowerQuery.includes("workflow") ||
+      lowerQuery.includes("orchestrate") ||
+      lowerQuery.includes("coordinate") ||
+      lowerQuery.includes("manage")
+    ) {
+      return this.agents.get("http://localhost:3000") || null;
+    }
+
+    // All other queries go to normal MCP agent
+    return this.agents.get("virtual://normal-mcp-agent") || null;
+  }
+
+  /**
+   * Handle general MCP queries that don't require specific agent routing
+   */
+  async handleGeneralMCPQuery(requestData: any): Promise<any> {
+    const { query, context } = requestData;
+    const chatMode = context?.chatMode || "quiz"; // Default to quiz mode
+
+    // Add query to chat history
+    this.addChatMessage({
+      type: "user",
+      content: query,
+      metadata: { status: "processing" },
+    });
+
+    let response = "";
+    let agentId = "";
+
+    if (
+      chatMode === "quiz" ||
+      query.toLowerCase().includes("quiz") ||
+      query.toLowerCase().includes("question")
+    ) {
+      // Quiz-focused responses
+      agentId = "quiz-agent";
+
+      if (query.toLowerCase().includes("create quiz")) {
+        response = `Great! I'd love to help you create a quiz. What topic would you like the quiz to cover? 
+
+**Examples you can try:**
+• "Create a quiz about the solar system"
+• "Make a science quiz about photosynthesis" 
+• "Generate a history quiz about the Renaissance"
+• "Create a math quiz about algebra"
+• "Make a quiz about JavaScript programming"
+
+Just tell me the topic and I'll create 20 multiple-choice questions for you!`;
+      } else if (query.toLowerCase().includes("science")) {
+        response = `Perfect! I can create science quizzes on any topic. Here are some examples:
+
+**Science Quiz Topics:**
+• "Create a quiz about the solar system and planets"
+• "Make a biology quiz about human anatomy"
+• "Generate a chemistry quiz about periodic table"
+• "Create a physics quiz about Newton's laws"
+• "Make an astronomy quiz about stars and galaxies"
+
+What specific science topic interests you? I can generate multiple choice questions, true/false, or short answer questions.`;
+      } else if (query.toLowerCase().includes("history")) {
+        response = `Excellent choice! I can create history quizzes covering any time period or region. Here are some examples:
+
+**History Quiz Topics:**
+• "Create a quiz about World War II"
+• "Make a quiz about ancient Egypt"
+• "Generate a quiz about the American Revolution"
+• "Create a quiz about the Renaissance period"
+• "Make a quiz about medieval times"
+
+What historical period or event would you like to focus on?`;
+      } else if (query.toLowerCase().includes("math")) {
+        response = `Math quizzes are my specialty! I can create questions covering any math topic. Here are some examples:
+
+**Math Quiz Topics:**
+• "Create a quiz about algebra and equations"
+• "Make a geometry quiz about shapes and angles"
+• "Generate a calculus quiz about derivatives"
+• "Create a statistics quiz about probability"
+• "Make a quiz about fractions and decimals"
+
+What level and type of math problems would you like? I can make them as easy or challenging as you need.`;
+      } else if (query.toLowerCase().includes("general knowledge")) {
+        response = `General knowledge quizzes are fun! I can create questions covering many topics. Here are some examples:
+
+**General Knowledge Topics:**
+• "Create a quiz about world capitals"
+• "Make a quiz about famous landmarks"
+• "Generate a quiz about literature and authors"
+• "Create a quiz about sports and athletes"
+• "Make a quiz about technology and inventions"
+
+What area of general knowledge would you like to test?`;
+      } else {
+        response = `I'm your Quiz Agent! I can help you create quizzes on any topic. Here's how to get started:
+
+**Quick Start Options:**
+• Click any suggested button above (Create Quiz, Science Topics, etc.)
+• Type "Create a quiz about [your topic]"
+• Paste content and ask me to make a quiz from it
+
+**Examples:**
+• "Create a quiz about the solar system"
+• "Make a science quiz about photosynthesis"
+• "Generate a history quiz about World War II"
+• "Create a math quiz about algebra"
+
+What would you like to quiz about?`;
+      }
+    } else if (
+      query.toLowerCase().includes("help") ||
+      query.toLowerCase().includes("plan") ||
+      query.toLowerCase().includes("explain")
+    ) {
+      // Help/planning mode - provide guidance without needing backend
+      agentId = "quiz-agent";
+      response = `I'm your Quiz Agent! I can help you plan and design quizzes even when the generation service is temporarily unavailable.
+
+**I can help you with:**
+• Planning quiz topics and structure
+• Suggesting question types and formats
+• Explaining quiz creation best practices
+• Brainstorming quiz content ideas
+• Reviewing quiz concepts
+
+**What would you like help with?**
+• "Help me plan a science quiz about photosynthesis"
+• "What topics should I include in a history quiz about World War II?"
+• "Explain how to write good multiple choice questions"
+• "Suggest quiz formats for different subjects"
+
+How can I assist you with quiz planning today?`;
+    } else {
+      // General chat mode
+      agentId = "normal-mcp-agent";
+      response = `I'm your Quiz Agent, but I can also help with general questions! You asked: "${query}". 
+
+I'm here to assist with quiz creation, planning, and answering any questions you have. Even if the quiz generation service is temporarily unavailable, I can still help you plan quizzes and answer questions about quiz creation.
+
+How can I help you today?`;
+    }
+
+    this.addChatMessage({
+      type: "agent",
+      content: response,
+      metadata: {
+        agentId: agentId,
+        status: "completed",
+      },
+    });
+
+    return {
+      success: true,
+      response,
+      agent: { name: "Quiz Agent" },
+      timestamp: new Date().toISOString(),
+    };
   }
 
   /**
@@ -115,21 +319,35 @@ export class NextJSOrchestratorService {
   }
 
   /**
-   * Get agent card from URL
+   * Get agent card from URL using A2A SDK
    */
   private async getAgentCard(url: string): Promise<any> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
     try {
-      const response = await fetch(`${url}/.well-known/agent-card.json`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response.json();
+      // Import A2A client dynamically to avoid SSR issues
+      const { A2AClient } = await import("@a2a-js/sdk/client");
+
+      // Create A2A client
+      const a2aClient = new A2AClient();
+
+      // Get agent card using A2A SDK
+      return await a2aClient.getAgentCard(url);
     } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
+      console.error("Failed to get agent card via A2A SDK:", error);
+
+      // Fallback to direct fetch if A2A SDK fails
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      try {
+        const response = await fetch(`${url}/.well-known/agent-card.json`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return response.json();
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
+      }
     }
   }
 
@@ -317,7 +535,7 @@ export class NextJSOrchestratorService {
   }
 
   /**
-   * Execute a single workflow step
+   * Execute a single workflow step using real A2A SDK
    */
   private async executeStep(step: WorkflowStep): Promise<any> {
     const agent = this.agents.get(step.agentId);
@@ -325,26 +543,57 @@ export class NextJSOrchestratorService {
       throw new Error(`Agent ${step.agentId} not found`);
     }
 
-    // Submit task to agent
-    const response = await fetch(
-      `${step.agentId}/api/actions/${step.skillId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    try {
+      // Import A2A client dynamically to avoid SSR issues
+      const { A2AClient, TaskSubmissionRequest } = await import(
+        "@a2a-js/sdk/client"
+      );
+
+      // Create A2A client
+      const a2aClient = new A2AClient();
+
+      // Create task submission request
+      const request: TaskSubmissionRequest = {
+        skillId: step.skillId,
+        input: {
+          parts: [
+            {
+              kind: "text",
+              text: JSON.stringify(step.input),
+            },
+          ],
         },
-        body: JSON.stringify({
-          skillId: step.skillId,
-          input: step.input,
-        }),
+      };
+
+      // Submit task using A2A SDK
+      const task = await a2aClient.submitTask(step.agentId, request);
+
+      // Wait for task completion using A2A SDK
+      const completedTask = await a2aClient.waitForTaskCompletion(
+        step.agentId,
+        task.id
+      );
+
+      if (
+        completedTask.status.state === "completed" &&
+        completedTask.artifacts
+      ) {
+        // Extract data from A2A artifacts
+        const artifact = completedTask.artifacts[0];
+        if (artifact && artifact.parts) {
+          return JSON.parse(artifact.parts[0].text);
+        }
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Agent call failed: ${response.status}`);
+      throw new Error("Task did not complete successfully or no data found");
+    } catch (error) {
+      console.error("A2A task execution failed:", error);
+      throw new Error(
+        `A2A agent call failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
-
-    return await response.json();
   }
 
   /**
