@@ -105,12 +105,24 @@ export function SimpleChatInterface({
     setIsGenerating(true);
 
     try {
-      // Determine if this is a quiz request
+      // Determine if this is a quiz request - be more specific
+      const lowerInput = userInput.toLowerCase();
       const isQuizRequest =
-        userInput.toLowerCase().includes("quiz") ||
-        userInput.toLowerCase().includes("create") ||
-        userInput.toLowerCase().includes("generate") ||
-        userInput.toLowerCase().includes("questions");
+        lowerInput.includes("create a quiz") ||
+        lowerInput.includes("generate a quiz") ||
+        lowerInput.includes("make a quiz") ||
+        lowerInput.includes("quiz about") ||
+        lowerInput.includes("quiz on") ||
+        lowerInput.includes("quiz for") ||
+        lowerInput.includes("create quiz") ||
+        lowerInput.includes("generate quiz") ||
+        lowerInput.includes("make quiz") ||
+        lowerInput.includes("create questions") ||
+        lowerInput.includes("generate questions") ||
+        (lowerInput.includes("quiz") &&
+          (lowerInput.includes("about") ||
+            lowerInput.includes("on") ||
+            lowerInput.includes("for")));
 
       if (isQuizRequest) {
         // Handle quiz generation
@@ -151,20 +163,39 @@ export function SimpleChatInterface({
         }
       } else {
         // Handle general chat
-        // Simulate AI response for general questions
-        const responses = [
-          "That's an interesting question! I'm here to help you create quizzes and answer questions about various topics.",
-          "I'd be happy to help! If you'd like me to create a quiz about this topic, just let me know.",
-          "Great question! I can create educational quizzes on this subject if you're interested.",
-          "I understand! Feel free to ask me to create a quiz about any topic you'd like to learn more about.",
-        ];
+        let response = "";
 
-        const randomResponse =
-          responses[Math.floor(Math.random() * responses.length)];
+        // Check for greetings
+        if (
+          lowerInput.includes("hello") ||
+          lowerInput.includes("hi") ||
+          lowerInput.includes("hey")
+        ) {
+          response =
+            "Hello! I'm your Quiz Agent. I can help you create quizzes on any topic or answer general questions. What would you like to do today?";
+        } else if (
+          lowerInput.includes("help") ||
+          lowerInput.includes("what can you do")
+        ) {
+          response =
+            "I can help you in two ways:\n\n1. **Create Quizzes**: Just ask me to 'create a quiz about [topic]' and I'll generate multiple-choice questions for you.\n\n2. **General Questions**: Ask me anything and I'll do my best to help!\n\nWhat would you like to try?";
+        } else if (lowerInput.includes("thank")) {
+          response =
+            "You're welcome! I'm here to help. Feel free to ask me to create a quiz about any topic or ask me any questions you have!";
+        } else {
+          // General responses for other questions
+          const responses = [
+            "That's an interesting question! I'm here to help you create quizzes and answer questions about various topics.",
+            "I'd be happy to help! If you'd like me to create a quiz about this topic, just let me know.",
+            "Great question! I can create educational quizzes on this subject if you're interested.",
+            "I understand! Feel free to ask me to create a quiz about any topic you'd like to learn more about.",
+          ];
+          response = responses[Math.floor(Math.random() * responses.length)];
+        }
 
         // Simulate typing delay
         setTimeout(() => {
-          updateMessage(botMessageId, randomResponse, false);
+          updateMessage(botMessageId, response, false);
         }, 1000);
       }
     } catch (error) {

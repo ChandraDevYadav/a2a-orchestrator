@@ -326,11 +326,11 @@ How can I help you today?`;
       // Import A2A client dynamically to avoid SSR issues
       const { A2AClient } = await import("@a2a-js/sdk/client");
 
-      // Create A2A client
-      const a2aClient = new A2AClient();
+      // Create A2A client using fromCardUrl static method
+      const a2aClient = await A2AClient.fromCardUrl(url);
 
-      // Get agent card using A2A SDK
-      return await a2aClient.getAgentCard(url);
+      // Return the agent card from the client
+      return a2aClient.agentCard;
     } catch (error) {
       console.error("Failed to get agent card via A2A SDK:", error);
 
@@ -545,43 +545,45 @@ How can I help you today?`;
 
     try {
       // Import A2A client dynamically to avoid SSR issues
-      const { A2AClient, TaskSubmissionRequest } = await import(
-        "@a2a-js/sdk/client"
-      );
+      const { A2AClient } = await import("@a2a-js/sdk/client");
 
-      // Create A2A client
-      const a2aClient = new A2AClient();
+      // Create A2A client using the agent URL
+      const a2aClient = await A2AClient.fromCardUrl(step.agentId);
 
-      // Create task submission request
-      const request: TaskSubmissionRequest = {
-        skillId: step.skillId,
-        input: {
-          parts: [
-            {
-              kind: "text",
-              text: JSON.stringify(step.input),
-            },
-          ],
-        },
+      // Create message with task input
+      const message = {
+        parts: [
+          {
+            kind: "text" as const,
+            text: JSON.stringify({
+              skillId: step.skillId,
+              input: step.input,
+            }),
+          },
+        ],
       };
 
-      // Submit task using A2A SDK
-      const task = await a2aClient.submitTask(step.agentId, request);
+      // Send message using A2A SDK
+      const response = await a2aClient.sendMessage({
+        message,
+        configuration: {
+          blocking: true,
+        },
+      });
 
-      // Wait for task completion using A2A SDK
-      const completedTask = await a2aClient.waitForTaskCompletion(
-        step.agentId,
-        task.id
-      );
+      // Handle the response
+      if (response && typeof response === "object" && "artifacts" in response) {
+        const completedTask = response as any;
 
-      if (
-        completedTask.status.state === "completed" &&
-        completedTask.artifacts
-      ) {
-        // Extract data from A2A artifacts
-        const artifact = completedTask.artifacts[0];
-        if (artifact && artifact.parts) {
-          return JSON.parse(artifact.parts[0].text);
+        if (
+          completedTask.status?.state === "completed" &&
+          completedTask.artifacts
+        ) {
+          // Extract data from A2A artifacts
+          const artifact = completedTask.artifacts[0];
+          if (artifact && artifact.parts) {
+            return JSON.parse(artifact.parts[0].text);
+          }
         }
       }
 
