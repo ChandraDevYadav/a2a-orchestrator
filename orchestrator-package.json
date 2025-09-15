@@ -1,0 +1,29 @@
+{
+  "name": "quiz-orchestrator",
+  "version": "1.0.0",
+  "description": "Standalone A2A Orchestrator Service",
+  "main": "orchestrator-server.js",
+  "scripts": {
+    "start": "node orchestrator-server.js",
+    "dev": "nodemon orchestrator-server.js",
+    "build": "npm run build:frontend && npm run build:orchestrator",
+    "build:frontend": "cd .. && npm run build",
+    "build:orchestrator": "tsc orchestrator-server.ts --outDir dist --target es2020 --module commonjs",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "typescript": "^5.0.0",
+    "@types/express": "^4.17.17",
+    "@types/cors": "^2.8.13",
+    "@types/uuid": "^9.0.2"
+  },
+  "keywords": ["a2a", "orchestrator", "agent", "quiz"],
+  "author": "Your Name",
+  "license": "MIT"
+}

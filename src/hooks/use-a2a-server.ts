@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import {
-  startFrontendA2AServer,
-  stopFrontendA2AServer,
-  getFrontendA2AServer,
-} from "@/lib/a2a-server";
+  startRealFrontendA2AServer,
+  stopRealFrontendA2AServer,
+  getRealFrontendA2AServer,
+} from "@/lib/a2a-server-real-sdk";
 
 /**
  * Hook to initialize real A2A server for the frontend
@@ -29,7 +29,7 @@ export function useA2AServer() {
         console.log("Starting Frontend A2A Agent...");
 
         // Start the A2A server using SDK
-        const server = await startFrontendA2AServer();
+        const server = await startRealFrontendA2AServer();
 
         // Get server status
         const status = server.getStatus();
@@ -44,7 +44,7 @@ export function useA2AServer() {
         // Cleanup on unmount
         return () => {
           console.log("Stopping A2A server...");
-          stopFrontendA2AServer();
+          stopRealFrontendA2AServer();
         };
       } catch (error) {
         console.error("Failed to initialize A2A server:", error);
@@ -70,10 +70,10 @@ export function useA2AServer() {
       setError(null);
 
       // Stop existing server
-      await stopFrontendA2AServer();
+      await stopRealFrontendA2AServer();
 
       // Start new server
-      const server = await startFrontendA2AServer();
+      const server = await startRealFrontendA2AServer();
       const status = server.getStatus();
       setServerStatus(status);
       setIsInitialized(true);

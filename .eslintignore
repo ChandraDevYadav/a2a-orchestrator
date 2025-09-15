@@ -1,0 +1,23 @@
+# Node.js server files (not Next.js components)
+orchestrator-server.js
+start-dev.js
+test-*.js
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Environment files
+.env*
+orchestrator.env
+
+# Package files
+package-lock.json
+orchestrator-package.json
+
+# Documentation
+*.md

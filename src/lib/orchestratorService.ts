@@ -61,6 +61,7 @@ export class NextJSOrchestratorService {
   private knownAgentUrls: string[] = [
     "http://localhost:3000", // Frontend agent (self)
     "http://localhost:4001", // Backend agent
+    "http://localhost:5000", // Orchestrator agent (separate port)
   ];
 
   // Enhanced components
@@ -224,7 +225,7 @@ export class NextJSOrchestratorService {
       discoveryMethod: discoveryMethod as any,
       environment: {
         prefix: process.env.AGENT_PREFIX || "QUIZ_AGENT",
-        ports: this.parsePorts(process.env.AGENT_PORTS || "3000,4001,4002"),
+        ports: this.parsePorts(process.env.AGENT_PORTS || "3000,4001,5000"),
         hosts: this.parseHosts(process.env.AGENT_HOSTS || "localhost"),
       },
       manual: {
@@ -871,16 +872,20 @@ How can I help you today?`;
   }
 
   /**
-   * Discover agents in the network
+   * Discover agents in the network using A2A protocol
    */
   async discoverAgents(requestData: any = {}): Promise<any> {
     const discoveredAgents: AgentInfo[] = [];
 
+    console.log("🔍 Starting A2A agent discovery...");
+
     for (const url of this.knownAgentUrls) {
       try {
+        console.log(`🔍 Discovering agent at ${url}...`);
         const agentCard = await this.getAgentCard(url);
+
         const agentInfo: AgentInfo = {
-          name: agentCard.name,
+          name: agentCard.name || `Agent-${url.split(":").pop()}`,
           url: url,
           skills: agentCard.skills?.map((s: any) => s.id) || [],
           status: "online",
@@ -891,14 +896,23 @@ How can I help you today?`;
         this.agents.set(url, agentInfo);
         discoveredAgents.push(agentInfo);
 
+        console.log(
+          `✅ Successfully discovered agent: ${agentInfo.name} at ${url}`
+        );
+
         // Add discovery message to chat
         this.addChatMessage({
           type: "system",
-          content: `Discovered agent: ${agentCard.name} at ${url}`,
-          metadata: { agentId: url },
+          content: `Discovered agent: ${agentInfo.name} at ${url} with ${agentInfo.skills.length} skills`,
+          metadata: {
+            agentId: url,
+            skillId: agentInfo.skills.join(","),
+            status: "discovered",
+          },
         });
       } catch (error) {
-        console.error(`Failed to discover agent at ${url}:`, error);
+        console.error(`❌ Failed to discover agent at ${url}:`, error);
+
         const agentInfo: AgentInfo = {
           name: `Unknown Agent (${url})`,
           url: url,
@@ -907,12 +921,29 @@ How can I help you today?`;
           lastSeen: new Date(),
         };
         this.agents.set(url, agentInfo);
+        discoveredAgents.push(agentInfo);
+
+        // Add failure message to chat
+        this.addChatMessage({
+          type: "system",
+          content: `Failed to discover agent at ${url}: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`,
+          metadata: { agentId: url, status: "offline" },
+        });
       }
     }
+
+    console.log(
+      `🎯 Agent discovery completed. Found ${discoveredAgents.length} agents.`
+    );
 
     return {
       agents: discoveredAgents,
       count: discoveredAgents.length,
+      onlineCount: discoveredAgents.filter((a) => a.status === "online").length,
+      offlineCount: discoveredAgents.filter((a) => a.status === "offline")
+        .length,
       timestamp: new Date().toISOString(),
     };
   }
@@ -1134,7 +1165,7 @@ How can I help you today?`;
   }
 
   /**
-   * Execute a single workflow step using real A2A SDK
+   * Execute a single workflow step using real A2A SDK with enhanced error handling
    */
   private async executeStep(step: WorkflowStep): Promise<any> {
     const agent = this.agents.get(step.agentId);
@@ -1143,6 +1174,8 @@ How can I help you today?`;
     }
 
     try {
+      console.log(`🔄 Executing step ${step.id} on agent ${step.agentId}`);
+
       // Import A2A client dynamically to avoid SSR issues
       const { A2AClient } = await import("@a2a-js/sdk/client");
 
@@ -1173,9 +1206,57 @@ How can I help you today?`;
         },
       });
 
-      // Handle the response
-      if (response && typeof response === "object" && "artifacts" in response) {
-        const completedTask = response as any;
+      console.log(`A2A response for step ${step.id}:`, response);
+
+      // Handle the response with enhanced error handling
+      if (response && typeof response === "object" && "task" in response) {
+        const task = response.task as any;
+
+        // Poll for task completion with timeout
+        let completedTask = task;
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds timeout
+
+        while (
+          completedTask.status &&
+          (completedTask.status.state === "running" ||
+            completedTask.status.state === "submitted") &&
+          attempts < maxAttempts
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          attempts++;
+
+          try {
+            const taskResponse = await a2aClient.getTask({ id: task.id });
+            console.log(
+              `A2A task polling attempt ${attempts} for step ${step.id}:`,
+              taskResponse
+            );
+
+            if ("task" in taskResponse && taskResponse.task) {
+              completedTask = taskResponse.task as any;
+              console.log(
+                `A2A task status for step ${step.id}: ${completedTask.status?.state}`
+              );
+            }
+          } catch (pollError) {
+            console.error(
+              `A2A task polling error for step ${step.id} (attempt ${attempts}):`,
+              pollError
+            );
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new Error(
+            `A2A task polling timeout for step ${step.id} - task did not complete within 30 seconds`
+          );
+        }
+
+        console.log(
+          `A2A task completed for step ${step.id}:`,
+          completedTask.status?.state
+        );
 
         if (
           completedTask.status?.state === "completed" &&
@@ -1184,16 +1265,57 @@ How can I help you today?`;
           // Extract data from A2A artifacts
           const artifact = completedTask.artifacts[0];
           if (artifact && artifact.parts) {
-            return JSON.parse(artifact.parts[0].text);
+            const result = JSON.parse(artifact.parts[0].text);
+            console.log(`Step ${step.id} completed successfully:`, result);
+            return result;
+          }
+        } else if (completedTask.status?.state === "failed") {
+          console.error(`A2A task failed for step ${step.id}:`, completedTask);
+          throw new Error(`A2A task execution failed for step ${step.id}`);
+        } else {
+          console.error(
+            `A2A task not completed for step ${step.id}:`,
+            completedTask
+          );
+          throw new Error(
+            `A2A task status: ${completedTask.status?.state}, artifacts: ${
+              completedTask.artifacts ? "present" : "missing"
+            }`
+          );
+        }
+      } else if (
+        response &&
+        typeof response === "object" &&
+        "message" in response
+      ) {
+        // Handle direct message response
+        const message = response.message as any;
+        if (message.parts && message.parts.length > 0) {
+          try {
+            const result = JSON.parse(message.parts[0].text);
+            console.log(
+              `Step ${step.id} completed with direct message:`,
+              result
+            );
+            return result;
+          } catch (e) {
+            // If not JSON, return the text as result
+            console.log(
+              `Step ${step.id} completed with text response:`,
+              message.parts[0].text
+            );
+            return { result: message.parts[0].text };
           }
         }
       }
 
-      throw new Error("Task did not complete successfully or no data found");
-    } catch (error) {
-      console.error("A2A task execution failed:", error);
       throw new Error(
-        `A2A agent call failed: ${
+        `No valid response received from A2A agent for step ${step.id}`
+      );
+    } catch (error) {
+      console.error(`A2A task execution failed for step ${step.id}:`, error);
+      throw new Error(
+        `A2A agent call failed for step ${step.id}: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );

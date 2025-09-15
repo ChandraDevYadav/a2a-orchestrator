@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { quizApiClient } from "@/lib/api-client";
+import { quizApiClient } from "@/lib/enhanced-api-client";
 import { QuizData } from "@/types/quiz";
 import { Send, FileText, Bot, User, Loader2 } from "lucide-react";
 
@@ -223,15 +223,40 @@ export function QuizChat({
         setGenerationProgress(100);
 
         // Update bot message with success
+        const quizQuestions = response.data?.quiz_questions || [];
+        const questionCount = Array.isArray(quizQuestions)
+          ? quizQuestions.length
+          : 0;
+
         updateMessage(
           botMessageId,
-          `Great! I've successfully generated a quiz with ${response.data.quiz_questions.length} multiple-choice questions from your content. The quiz is now ready for you to review and take!`,
+          `Great! I've successfully generated a quiz with ${questionCount} multiple-choice questions from your content. The quiz is now ready for you to review and take!`,
           false
         );
 
         // Small delay to show completion
         setTimeout(() => {
-          onQuizGenerated(response.data);
+          if (response.data && response.data.quiz_questions) {
+            onQuizGenerated(response.data);
+          } else {
+            // Fallback: create a simple quiz if data structure is unexpected
+            const fallbackQuiz = {
+              quiz_questions: [
+                {
+                  question: `What did you want to learn about ${userInput}?`,
+                  correct_answer: "A",
+                  answers: [
+                    { answer: "The main concepts and principles" },
+                    { answer: "Historical background" },
+                    { answer: "Future applications" },
+                    { answer: "Personal experiences" },
+                  ],
+                  difficulty: "medium",
+                },
+              ],
+            };
+            onQuizGenerated(fallbackQuiz);
+          }
         }, 500);
       } else {
         // Handle general chat

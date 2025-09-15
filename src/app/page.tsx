@@ -18,6 +18,8 @@ import { QuizDataGrid } from "@/components/QuizDataGrid";
 import { QuizTaker } from "@/components/QuizTaker";
 import { A2AAgentInfo } from "@/components/A2AAgentInfo";
 import { A2AConfiguration } from "@/components/A2AConfiguration";
+import { OrchestratorStatus } from "@/components/OrchestratorStatus";
+import { OrchestratorConfiguration } from "@/components/OrchestratorConfiguration";
 import { QuizData, QuizSession } from "@/types/quiz";
 import {
   Brain,
@@ -32,6 +34,7 @@ import {
   Target,
   Globe,
   Copy,
+  Settings,
 } from "lucide-react";
 
 export default function Home() {
@@ -438,18 +441,31 @@ export default function Home() {
                   </CardContent>
                 </Card>
 
-                {/* A2A Configuration */}
-                {/* <Card>
+                {/* Orchestrator Status */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Network className="h-5 w-5 text-blue-600" />
-                      A2A Configuration
+                      Orchestrator Status
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <A2AConfiguration />
+                    <OrchestratorStatus />
                   </CardContent>
-                </Card> */}
+                </Card>
+
+                {/* Orchestrator Configuration */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-blue-600" />
+                      Configuration
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <OrchestratorConfiguration />
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Right Side - Chat Interface */}
