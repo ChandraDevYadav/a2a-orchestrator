@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import agentCard from "../../../../agent-card.json";
+import agentCard from "../../../../../agent-card.json";
 
 export async function GET(request: NextRequest) {
   try {

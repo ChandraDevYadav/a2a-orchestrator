@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { NextJSOrchestratorService } from "@/lib/orchestratorService";
 
 // Global orchestrator service instance
-let orchestratorService: NextJSOrchestratorService;
+let orchestratorService: NextJSOrchestratorService | undefined;
 
 // Initialize orchestrator service
-if (!orchestratorService) {
-  orchestratorService = new NextJSOrchestratorService();
+function getOrchestratorService(): NextJSOrchestratorService {
+  if (!orchestratorService) {
+    orchestratorService = new NextJSOrchestratorService();
+  }
+  return orchestratorService;
 }
 
 export async function POST(request: NextRequest) {
@@ -18,52 +21,64 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "discover_agents":
-        result = await orchestratorService.discoverAgents(data);
+        result = await getOrchestratorService().discoverAgents(data);
         break;
 
       case "orchestrate_quiz_workflow":
-        result = await orchestratorService.orchestrateQuizWorkflow(data);
+        result = await getOrchestratorService().orchestrateQuizWorkflow(data);
         break;
 
       case "monitor_system_health":
-        result = await orchestratorService.monitorSystemHealth(data);
+        result = await getOrchestratorService().monitorSystemHealth(data);
         break;
 
       case "get_chat_history":
-        result = orchestratorService.getChatHistory();
+        result = getOrchestratorService().getChatHistory();
         break;
 
       case "get_workflow_chat_history":
-        result = orchestratorService.getWorkflowChatHistory(data.workflowId);
+        result = getOrchestratorService().getWorkflowChatHistory(
+          data.workflowId
+        );
         break;
 
       case "clear_chat_history":
-        orchestratorService.clearChatHistory();
+        getOrchestratorService().clearChatHistory();
         result = { success: true };
         break;
 
       case "get_workflows":
-        result = orchestratorService.getAllWorkflows();
+        result = getOrchestratorService().getAllWorkflows();
         break;
 
       case "get_workflow":
-        result = orchestratorService.getWorkflow(data.workflowId);
+        result = getOrchestratorService().getWorkflow(data.workflowId);
         break;
 
       case "get_agents":
-        result = orchestratorService.getAllAgents();
+        result = getOrchestratorService().getAllAgents();
         break;
 
       case "get_agent":
-        result = orchestratorService.getAgent(data.url);
+        result = getOrchestratorService().getAgent(data.url);
         break;
 
       case "determine_agent_for_query":
-        result = orchestratorService.determineAgentForQuery(data.query);
+        result = getOrchestratorService().determineAgentForQuery(
+          data.query,
+          data.context
+        );
+        break;
+
+      case "execute_agent_with_resilience":
+        result = await getOrchestratorService().executeAgentWithResilience(
+          data.query,
+          data.context
+        );
         break;
 
       case "handle_general_mcp_query":
-        result = await orchestratorService.handleGeneralMCPQuery(data);
+        result = await getOrchestratorService().handleGeneralMCPQuery(data);
         break;
 
       default:
@@ -106,8 +121,8 @@ export async function GET(request: NextRequest) {
             version: "1.0.0",
           },
           agents: {
-            discovered: orchestratorService.getAllAgents().length,
-            active: orchestratorService
+            discovered: getOrchestratorService().getAllAgents().length,
+            active: getOrchestratorService()
               .getAllAgents()
               .filter((a) => a.status === "online").length,
             last_discovery: new Date().toISOString(),
@@ -116,15 +131,15 @@ export async function GET(request: NextRequest) {
         break;
 
       case "chat_history":
-        result = orchestratorService.getChatHistory();
+        result = getOrchestratorService().getChatHistory();
         break;
 
       case "workflows":
-        result = orchestratorService.getAllWorkflows();
+        result = getOrchestratorService().getAllWorkflows();
         break;
 
       case "agents":
-        result = orchestratorService.getAllAgents();
+        result = getOrchestratorService().getAllAgents();
         break;
 
       default:

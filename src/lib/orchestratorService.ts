@@ -1,4 +1,15 @@
 import { v4 as uuidv4 } from "uuid";
+import {
+  EnhancedAgentSelector,
+  AgentProfile,
+  QueryContext,
+} from "./enhanced-agent-selector";
+import { AgentCircuitBreaker } from "./circuit-breaker";
+import {
+  DynamicAgentDiscovery,
+  AgentDiscoveryConfig,
+} from "./dynamic-agent-discovery";
+import { EnvironmentAgentManager } from "./environment-agent-manager";
 
 export interface AgentInfo {
   name: string;
@@ -45,14 +56,218 @@ export class NextJSOrchestratorService {
   private agents: Map<string, AgentInfo> = new Map();
   private workflows: Map<string, Workflow> = new Map();
   private chatHistory: ChatMessage[] = [];
+
+  // Legacy hardcoded URLs (for backward compatibility)
   private knownAgentUrls: string[] = [
     "http://localhost:3000", // Frontend agent (self)
     "http://localhost:4001", // Backend agent
   ];
 
+  // Enhanced components
+  private enhancedAgentSelector: EnhancedAgentSelector;
+  private circuitBreaker: AgentCircuitBreaker;
+  private retryAttempts: number = 3;
+  private timeoutMs: number = 30000;
+
+  // Dynamic discovery components
+  private dynamicDiscovery: DynamicAgentDiscovery | null = null;
+  private environmentManager: EnvironmentAgentManager;
+
   constructor() {
+    // Initialize enhanced components
+    this.enhancedAgentSelector = new EnhancedAgentSelector();
+    this.circuitBreaker = new AgentCircuitBreaker();
+
+    // Initialize environment-based agent management
+    const environment = process.env.NODE_ENV || "development";
+    this.environmentManager = new EnvironmentAgentManager(environment);
+
     this.startAgentDiscovery();
     this.initializeVirtualAgents();
+    this.initializeEnhancedAgents();
+    this.initializeDynamicDiscovery();
+  }
+
+  /**
+   * Initialize enhanced agent profiles with capabilities
+   */
+  private initializeEnhancedAgents(): void {
+    // Backend Quiz Agent
+    const backendAgent: AgentProfile = {
+      id: "backend-quiz-agent",
+      name: "Quiz Generation Agent",
+      url: "http://localhost:4001",
+      capabilities: [
+        {
+          id: "quiz-generation",
+          name: "Generate Quiz Questions",
+          description: "Creates quiz questions on any topic",
+          keywords: [
+            "quiz",
+            "question",
+            "test",
+            "exam",
+            "assessment",
+            "multiple choice",
+            "generate",
+            "create",
+          ],
+          confidence: 0.95,
+          requirements: ["openai-api"],
+        },
+        {
+          id: "content-analysis",
+          name: "Content Analysis",
+          description: "Analyzes and processes educational content",
+          keywords: [
+            "analyze",
+            "content",
+            "educational",
+            "material",
+            "process",
+          ],
+          confidence: 0.85,
+        },
+      ],
+      status: "online",
+      load: 0.0,
+      responseTime: 2000,
+      reliability: 0.95,
+      lastSeen: new Date(),
+    };
+
+    // Frontend Agent
+    const frontendAgent: AgentProfile = {
+      id: "frontend-agent",
+      name: "Frontend Orchestration Agent",
+      url: "http://localhost:3000",
+      capabilities: [
+        {
+          id: "ui-orchestration",
+          name: "UI Orchestration",
+          description: "Manages user interface and workflow coordination",
+          keywords: [
+            "workflow",
+            "orchestrate",
+            "coordinate",
+            "manage",
+            "ui",
+            "interface",
+            "display",
+            "render",
+          ],
+          confidence: 0.9,
+        },
+        {
+          id: "quiz-display",
+          name: "Quiz Display",
+          description: "Renders and manages quiz interfaces",
+          keywords: ["display", "render", "show", "present", "quiz interface"],
+          confidence: 0.88,
+        },
+      ],
+      status: "online",
+      load: 0.0,
+      responseTime: 500,
+      reliability: 0.98,
+      lastSeen: new Date(),
+    };
+
+    // Virtual MCP Agent
+    const mcpAgent: AgentProfile = {
+      id: "virtual-mcp-agent",
+      name: "General MCP Agent",
+      url: "virtual://normal-mcp-agent",
+      capabilities: [
+        {
+          id: "general-conversation",
+          name: "General Conversation",
+          description: "Handles general queries and conversations",
+          keywords: [
+            "help",
+            "explain",
+            "general",
+            "conversation",
+            "chat",
+            "assist",
+          ],
+          confidence: 0.8,
+        },
+        {
+          id: "information-retrieval",
+          name: "Information Retrieval",
+          description: "Retrieves and provides information",
+          keywords: ["information", "retrieve", "lookup", "search", "find"],
+          confidence: 0.75,
+        },
+      ],
+      status: "online",
+      load: 0.0,
+      responseTime: 1000,
+      reliability: 0.9,
+      lastSeen: new Date(),
+    };
+
+    // Register all agents with enhanced selector
+    this.enhancedAgentSelector.registerAgent(backendAgent);
+    this.enhancedAgentSelector.registerAgent(frontendAgent);
+    this.enhancedAgentSelector.registerAgent(mcpAgent);
+  }
+
+  /**
+   * Initialize dynamic agent discovery based on environment
+   */
+  private initializeDynamicDiscovery(): void {
+    const discoveryMethod = process.env.AGENT_DISCOVERY_METHOD || "environment";
+
+    const discoveryConfig: AgentDiscoveryConfig = {
+      discoveryMethod: discoveryMethod as any,
+      environment: {
+        prefix: process.env.AGENT_PREFIX || "QUIZ_AGENT",
+        ports: this.parsePorts(process.env.AGENT_PORTS || "3000,4001,4002"),
+        hosts: this.parseHosts(process.env.AGENT_HOSTS || "localhost"),
+      },
+      manual: {
+        agents: this.environmentManager.getAllAgents().map((agent) => ({
+          id: agent.id,
+          url: agent.url,
+          capabilities: agent.capabilities,
+          metadata: agent.metadata,
+        })),
+      },
+    };
+
+    try {
+      this.dynamicDiscovery = new DynamicAgentDiscovery(discoveryConfig);
+      console.log(
+        `Dynamic agent discovery initialized with method: ${discoveryMethod}`
+      );
+    } catch (error) {
+      console.warn(
+        "Failed to initialize dynamic discovery, falling back to environment manager:",
+        error
+      );
+    }
+  }
+
+  /**
+   * Parse comma-separated ports string
+   */
+  private parsePorts(portsString: string): number[] {
+    return portsString
+      .split(",")
+      .map((port) => parseInt(port.trim()))
+      .filter((port) => !isNaN(port));
+  }
+
+  /**
+   * Parse comma-separated hosts string
+   */
+  private parseHosts(hostsString: string): string[] {
+    return hostsString
+      .split(",")
+      .map((host) => host.trim())
+      .filter((host) => host.length > 0);
   }
 
   /**
@@ -81,9 +296,156 @@ export class NextJSOrchestratorService {
   }
 
   /**
-   * Determine which agent should handle a query based on content analysis
+   * Get all available agents (dynamic + legacy)
    */
-  determineAgentForQuery(query: string): AgentInfo | null {
+  getAllAvailableAgents(): any[] {
+    const agents: any[] = [];
+
+    // Add dynamically discovered agents
+    if (this.dynamicDiscovery) {
+      agents.push(...this.dynamicDiscovery.getAllAgents());
+    }
+
+    // Add environment-managed agents
+    agents.push(...this.environmentManager.getAllAgents());
+
+    // Add legacy agents for backward compatibility
+    const legacyAgents = Array.from(this.agents.values());
+    agents.push(...legacyAgents);
+
+    // Remove duplicates based on URL
+    const uniqueAgents = agents.filter(
+      (agent, index, self) =>
+        index === self.findIndex((a) => a.url === agent.url)
+    );
+
+    return uniqueAgents;
+  }
+
+  /**
+   * Get agents by capability with load balancing
+   */
+  getAgentsByCapability(capability: string): any[] {
+    const agents: any[] = [];
+
+    // Get from dynamic discovery
+    if (this.dynamicDiscovery) {
+      agents.push(...this.dynamicDiscovery.getAgentsByCapability(capability));
+    }
+
+    // Get from environment manager
+    agents.push(...this.environmentManager.getAgentsByCapability(capability));
+
+    // Get from legacy agents
+    const legacyAgents = Array.from(this.agents.values()).filter((agent) =>
+      agent.skills?.includes(capability)
+    );
+    agents.push(...legacyAgents);
+
+    // Remove duplicates and return online agents only
+    const uniqueAgents = agents.filter(
+      (agent, index, self) =>
+        index === self.findIndex((a) => a.url === agent.url)
+    );
+
+    return uniqueAgents.filter((agent) => agent.status === "online");
+  }
+
+  /**
+   * Get load-balanced agent URL for a capability
+   */
+  getLoadBalancedAgentUrl(capability: string): string | null {
+    // Try environment manager first (has load balancing)
+    const envAgent = this.environmentManager.getLoadBalancedAgent(capability);
+    if (envAgent) return envAgent;
+
+    // Fall back to dynamic discovery
+    if (this.dynamicDiscovery) {
+      const dynamicAgents =
+        this.dynamicDiscovery.getAgentsByCapability(capability);
+      if (dynamicAgents.length > 0) {
+        const index = Math.floor(Math.random() * dynamicAgents.length);
+        return dynamicAgents[index].url;
+      }
+    }
+
+    // Fall back to legacy hardcoded URLs
+    switch (capability) {
+      case "quiz-generation":
+      case "content-analysis":
+        return "http://localhost:4001";
+      case "ui-orchestration":
+      case "quiz-display":
+        return "http://localhost:3000";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Get primary agent URL for a capability
+   */
+  getPrimaryAgentUrl(capability: string): string | null {
+    // Try environment manager first
+    const envAgent = this.environmentManager.getPrimaryAgent(capability);
+    if (envAgent) return envAgent;
+
+    // Fall back to dynamic discovery
+    if (this.dynamicDiscovery) {
+      const dynamicAgents =
+        this.dynamicDiscovery.getAgentsByCapability(capability);
+      if (dynamicAgents.length > 0) {
+        return dynamicAgents[0].url;
+      }
+    }
+
+    // Fall back to legacy hardcoded URLs
+    switch (capability) {
+      case "quiz-generation":
+      case "content-analysis":
+        return "http://localhost:4001";
+      case "ui-orchestration":
+      case "quiz-display":
+        return "http://localhost:3000";
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Enhanced agent selection using sophisticated scoring
+   */
+  determineAgentForQuery(
+    query: string,
+    context?: QueryContext
+  ): {
+    agent: AgentProfile | null;
+    confidence: number;
+    reasoning: string;
+  } {
+    const result = this.enhancedAgentSelector.selectAgent(query, context);
+
+    // Add to chat history for transparency
+    this.addChatMessage({
+      type: "system",
+      content: `Agent selection: ${
+        result.agent?.name || "None"
+      } (confidence: ${result.confidence.toFixed(2)}, reasoning: ${
+        result.reasoning
+      })`,
+      metadata: {
+        agentId: result.agent?.id,
+        status: "selection_complete",
+      },
+    });
+
+    return result;
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  determineAgentForQueryLegacy(query: string): AgentInfo | null {
     const lowerQuery = query.toLowerCase();
 
     // Quiz-related queries go to backend agent
@@ -110,6 +472,243 @@ export class NextJSOrchestratorService {
 
     // All other queries go to normal MCP agent
     return this.agents.get("virtual://normal-mcp-agent") || null;
+  }
+
+  /**
+   * Enhanced agent execution with circuit breaker and retry logic
+   */
+  async executeAgentWithResilience(
+    query: string,
+    context?: QueryContext
+  ): Promise<{
+    success: boolean;
+    agent: AgentProfile | null;
+    result?: any;
+    error?: string;
+    fallbackUsed?: boolean;
+    metrics: {
+      selectionTime: number;
+      executionTime: number;
+      totalTime: number;
+    };
+  }> {
+    const startTime = Date.now();
+    let selectionTime = 0;
+    let executionTime = 0;
+
+    try {
+      // Step 1: Select primary agent using enhanced selector
+      const selectionStart = Date.now();
+      const { agent, confidence, reasoning } =
+        this.enhancedAgentSelector.selectAgent(query, context);
+      selectionTime = Date.now() - selectionStart;
+
+      if (!agent) {
+        return {
+          success: false,
+          agent: null,
+          error: "No suitable agent found",
+          metrics: {
+            selectionTime,
+            executionTime: 0,
+            totalTime: Date.now() - startTime,
+          },
+        };
+      }
+
+      // Step 2: Check circuit breaker
+      if (!this.circuitBreaker.isAgentAvailable(agent.id)) {
+        console.warn(`Agent ${agent.id} is circuit-broken, trying fallback`);
+        return await this.tryFallbackExecution(
+          query,
+          context,
+          agent.id,
+          startTime,
+          selectionTime
+        );
+      }
+
+      // Step 3: Execute with retry logic
+      const executionStart = Date.now();
+      const result = await this.executeWithRetry(agent, query, context);
+      executionTime = Date.now() - executionStart;
+
+      // Record success
+      this.circuitBreaker.recordSuccess(agent.id);
+      this.enhancedAgentSelector.updateAgentMetrics(
+        agent.id,
+        true,
+        executionTime
+      );
+
+      return {
+        success: true,
+        agent,
+        result,
+        metrics: {
+          selectionTime,
+          executionTime,
+          totalTime: Date.now() - startTime,
+        },
+      };
+    } catch (error) {
+      // Record failure and try fallback
+      const agent = this.enhancedAgentSelector.selectAgent(
+        query,
+        context
+      ).agent;
+      if (agent) {
+        this.circuitBreaker.recordFailure(agent.id);
+        this.enhancedAgentSelector.updateAgentMetrics(
+          agent.id,
+          false,
+          executionTime
+        );
+      }
+
+      return await this.tryFallbackExecution(
+        query,
+        context,
+        agent?.id,
+        startTime,
+        selectionTime
+      );
+    }
+  }
+
+  /**
+   * Execute agent with retry logic
+   */
+  private async executeWithRetry(
+    agent: AgentProfile,
+    query: string,
+    context?: QueryContext
+  ): Promise<any> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= this.retryAttempts; attempt++) {
+      try {
+        if (agent.url.startsWith("virtual://")) {
+          return await this.executeVirtualAgent(agent, query, context);
+        } else {
+          return await this.executeRealAgent(agent, query, context);
+        }
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Attempt ${attempt} failed for agent ${agent.id}:`, error);
+
+        if (attempt < this.retryAttempts) {
+          // Exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, attempt) * 1000)
+          );
+        }
+      }
+    }
+
+    throw lastError || new Error("All retry attempts failed");
+  }
+
+  /**
+   * Try fallback agents if primary fails
+   */
+  private async tryFallbackExecution(
+    query: string,
+    context: QueryContext | undefined,
+    excludeAgentId: string | undefined,
+    startTime: number,
+    selectionTime: number
+  ): Promise<{
+    success: boolean;
+    agent: AgentProfile | null;
+    result?: any;
+    error?: string;
+    fallbackUsed?: boolean;
+    metrics: {
+      selectionTime: number;
+      executionTime: number;
+      totalTime: number;
+    };
+  }> {
+    const fallbackAgents = this.enhancedAgentSelector.getFallbackAgents(
+      query,
+      excludeAgentId
+    );
+
+    for (const agent of fallbackAgents) {
+      if (!this.circuitBreaker.isAgentAvailable(agent.id)) continue;
+
+      try {
+        const executionStart = Date.now();
+        const result = await this.executeWithRetry(agent, query, context);
+        const executionTime = Date.now() - executionStart;
+
+        this.circuitBreaker.recordSuccess(agent.id);
+        this.enhancedAgentSelector.updateAgentMetrics(
+          agent.id,
+          true,
+          executionTime
+        );
+
+        return {
+          success: true,
+          agent,
+          result,
+          fallbackUsed: true,
+          metrics: {
+            selectionTime,
+            executionTime,
+            totalTime: Date.now() - startTime,
+          },
+        };
+      } catch (error) {
+        this.circuitBreaker.recordFailure(agent.id);
+        console.warn(`Fallback agent ${agent.id} also failed:`, error);
+      }
+    }
+
+    return {
+      success: false,
+      agent: null,
+      error: "All agents failed, including fallbacks",
+      metrics: {
+        selectionTime,
+        executionTime: 0,
+        totalTime: Date.now() - startTime,
+      },
+    };
+  }
+
+  /**
+   * Execute virtual agent (like MCP)
+   */
+  private async executeVirtualAgent(
+    agent: AgentProfile,
+    query: string,
+    context?: QueryContext
+  ): Promise<any> {
+    // Use existing handleGeneralMCPQuery logic
+    return await this.handleGeneralMCPQuery({ query, context });
+  }
+
+  /**
+   * Execute real agent via A2A
+   */
+  private async executeRealAgent(
+    agent: AgentProfile,
+    query: string,
+    context?: QueryContext
+  ): Promise<any> {
+    // Use existing A2A execution logic from executeStep
+    const step = {
+      id: "enhanced-step",
+      agentId: agent.url,
+      skillId: "enhanced-execution",
+      input: { query, context },
+      status: "running" as const,
+    };
+
+    return await this.executeStep(step);
   }
 
   /**
@@ -330,7 +929,7 @@ How can I help you today?`;
       const a2aClient = await A2AClient.fromCardUrl(url);
 
       // Return the agent card from the client
-      return a2aClient.agentCard;
+      return await a2aClient.getAgentCard();
     } catch (error) {
       console.error("Failed to get agent card via A2A SDK:", error);
 
@@ -552,6 +1151,9 @@ How can I help you today?`;
 
       // Create message with task input
       const message = {
+        kind: "message" as const,
+        messageId: uuidv4(),
+        role: "user" as const,
         parts: [
           {
             kind: "text" as const,
@@ -599,15 +1201,36 @@ How can I help you today?`;
   }
 
   /**
-   * Monitor system health
+   * Enhanced system health monitoring with circuit breaker status
    */
   async monitorSystemHealth(requestData: any): Promise<any> {
     const healthChecks = [];
+    const enhancedAgents = this.enhancedAgentSelector.getAllAgents();
 
+    // Check enhanced agents
+    for (const agent of enhancedAgents) {
+      const breakerStatus = this.circuitBreaker.getStatus(agent.id);
+
+      healthChecks.push({
+        agent: agent.name,
+        url: agent.url,
+        status: agent.status,
+        load: agent.load,
+        reliability: agent.reliability,
+        responseTime: agent.responseTime,
+        circuitBreaker: breakerStatus,
+        lastSeen: agent.lastSeen,
+      });
+    }
+
+    // Check legacy agents
     const agentEntries = Array.from(this.agents.entries());
-
     for (let i = 0; i < agentEntries.length; i++) {
       const [url, agent] = agentEntries[i];
+
+      // Skip if already checked in enhanced agents
+      if (enhancedAgents.some((ea) => ea.url === url)) continue;
+
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -622,6 +1245,7 @@ How can I help you today?`;
           url: url,
           status: "healthy",
           response_time: response.headers.get("x-response-time") || "unknown",
+          circuitBreaker: null,
         });
       } catch (error) {
         healthChecks.push({
@@ -629,6 +1253,7 @@ How can I help you today?`;
           url: url,
           status: "unhealthy",
           error: error instanceof Error ? error.message : "Unknown error",
+          circuitBreaker: null,
         });
       }
     }
@@ -640,6 +1265,18 @@ How can I help you today?`;
     return {
       overall_health: overallHealth,
       agents: healthChecks,
+      circuitBreakers: this.circuitBreaker.getAllStates(),
+      enhanced_metrics: {
+        totalAgents: enhancedAgents.length,
+        onlineAgents: enhancedAgents.filter((a) => a.status === "online")
+          .length,
+        averageReliability:
+          enhancedAgents.reduce((sum, a) => sum + a.reliability, 0) /
+          enhancedAgents.length,
+        averageResponseTime:
+          enhancedAgents.reduce((sum, a) => sum + a.responseTime, 0) /
+          enhancedAgents.length,
+      },
       timestamp: new Date().toISOString(),
     };
   }

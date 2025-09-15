@@ -9,27 +9,13 @@ export async function POST(request: NextRequest) {
     const a2aServer = getRealFrontendA2AServer();
     const requestHandler = a2aServer.getRequestHandler();
 
-    // Create a mock Express request/response for the A2A SDK
-    const mockReq = {
-      method: "POST",
-      url: request.url,
-      headers: Object.fromEntries(request.headers.entries()),
-      body: body,
-      json: () => Promise.resolve(body),
-    };
+    // Use the correct A2A SDK method for sending messages
+    const result = await requestHandler.sendMessage({
+      message: body.message,
+      configuration: body.configuration || { blocking: true },
+    });
 
-    const mockRes = {
-      status: (code: number) => ({
-        json: (data: any) => NextResponse.json(data, { status: code }),
-        end: () => new NextResponse(null, { status: code }),
-      }),
-      json: (data: any) => NextResponse.json(data),
-    };
-
-    // Handle the A2A task submission using the SDK
-    await requestHandler.handleTaskSubmission(mockReq as any, mockRes as any);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("A2A task submission failed:", error);
     return NextResponse.json(
@@ -55,26 +41,12 @@ export async function GET(request: NextRequest) {
     const a2aServer = getRealFrontendA2AServer();
     const requestHandler = a2aServer.getRequestHandler();
 
-    // Create mock request/response for task status
-    const mockReq = {
-      method: "GET",
-      url: request.url,
-      headers: Object.fromEntries(request.headers.entries()),
-      params: { taskId },
-    };
+    // Use the correct A2A SDK method for getting task status
+    const task = await requestHandler.getTask({
+      id: taskId,
+    });
 
-    const mockRes = {
-      status: (code: number) => ({
-        json: (data: any) => NextResponse.json(data, { status: code }),
-        end: () => new NextResponse(null, { status: code }),
-      }),
-      json: (data: any) => NextResponse.json(data),
-    };
-
-    // Handle the A2A task status using the SDK
-    await requestHandler.handleTaskStatus(mockReq as any, mockRes as any);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json(task);
   } catch (error) {
     console.error("A2A task status failed:", error);
     return NextResponse.json(

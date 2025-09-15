@@ -6,6 +6,7 @@ export interface QuizQuestion {
   question: string;
   correct_answer: string;
   answers: QuizAnswer[];
+  difficulty?: string; // Optional difficulty level (Easy, Medium, Hard)
 }
 
 export interface QuizData {

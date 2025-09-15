@@ -33,8 +33,7 @@ export function QuizChat({
     {
       id: "1",
       type: "bot",
-      content:
-        "Hello! I'm your AI Assistant. I can help you create quizzes from any topic or answer general questions. Just tell me what you need!",
+      content: "Hello! I'm your AI Assistant.",
       timestamp: new Date(),
     },
   ]);
@@ -320,7 +319,7 @@ export function QuizChat({
       <div className="border-t p-4 space-y-3 flex-shrink-0 bg-white mt-auto">
         <div className="flex gap-2">
           <Textarea
-            placeholder="Type a message... (e.g., 'Hello!' or 'Create a quiz about science')"
+            placeholder="Type a message..."
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyPress={handleKeyPress}

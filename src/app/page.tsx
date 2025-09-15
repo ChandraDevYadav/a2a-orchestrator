@@ -295,9 +295,7 @@ export default function Home() {
   const formatQuizText = () => {
     if (!quizData) return "";
 
-    const header = `Quiz: ${
-      quizData.quiz_title || "Generated Quiz"
-    }\nQuestions: ${quizData.quiz_questions.length}\n\n`;
+    const header = `Quiz: Generated Quiz\nQuestions: ${quizData.quiz_questions.length}\n\n`;
 
     const questionsText = quizData.quiz_questions
       .map((question, index) => {

@@ -1,136 +1,31 @@
 {
   "name": "Quiz Frontend Agent",
-  "description": "Interactive quiz frontend with built-in A2A Protocol orchestrator. Provides user interface for quiz creation, display, and taking. Can orchestrate quiz generation with backend agents and manage multi-agent workflows.",
+  "description": "Frontend agent with A2A orchestrator for quiz management",
   "protocolVersion": "0.3.0",
   "url": "http://localhost:3000",
-  "provider": {
-    "organization": "Agentic Labs",
-    "url": "https://agentic.example.com"
-  },
   "version": "1.0.0",
-  "documentationUrl": "https://agentic.example.com/docs/quiz-frontend",
   "capabilities": {
     "streaming": true,
-    "pushNotifications": true,
-    "stateTransitionHistory": true,
-    "agentDiscovery": true,
-    "workflowManagement": true,
-    "orchestration": true
+    "pushNotifications": true
   },
-  "authentication": { "schemes": [], "credentials": null },
-  "defaultInputModes": ["application/json", "text/plain"],
-  "defaultOutputModes": ["application/json"],
   "skills": [
-    {
-      "id": "create_quiz_interface",
-      "name": "Create Quiz Interface",
-      "description": "Provides user interface for creating quizzes from text content",
-      "action": "/actions/create_quiz_interface",
-      "tags": ["quiz", "ui", "interface", "creation"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": { "content": "Machine learning concepts", "type": "text" },
-          "output": { "interface": "quiz_creation_form", "status": "ready" }
-        }
-      ]
-    },
-    {
-      "id": "display_quiz",
-      "name": "Display Quiz",
-      "description": "Renders quiz questions and answers in an interactive format",
-      "action": "/actions/display_quiz",
-      "tags": ["quiz", "ui", "display", "interactive"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": { "quiz_data": { "questions": [] }, "mode": "display" },
-          "output": { "interface": "quiz_display", "status": "rendered" }
-        }
-      ]
-    },
-    {
-      "id": "take_quiz",
-      "name": "Take Quiz",
-      "description": "Provides interactive quiz-taking interface with scoring",
-      "action": "/actions/take_quiz",
-      "tags": ["quiz", "ui", "interactive", "scoring"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": { "quiz_data": { "questions": [] }, "mode": "take" },
-          "output": { "interface": "quiz_taker", "status": "active" }
-        }
-      ]
-    },
     {
       "id": "orchestrate_quiz_generation",
       "name": "Orchestrate Quiz Generation",
-      "description": "Coordinates with backend quiz generation agents to create quizzes",
-      "action": "/actions/orchestrate_quiz_generation",
-      "tags": ["quiz", "orchestration", "coordination", "backend"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": {
-            "content": "AI and machine learning topics",
-            "target_agent": "quiz-backend"
-          },
-          "output": { "orchestration": "initiated", "status": "coordinating" }
-        }
-      ]
+      "description": "Coordinates quiz generation with backend agents",
+      "action": "/api/orchestrator"
     },
     {
       "id": "discover_agents",
       "name": "Discover Agents",
-      "description": "Discovers and catalogs available A2A agents in the network",
-      "action": "/api/orchestrator",
-      "tags": ["discovery", "network", "agents"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": { "action": "discover_agents", "network_scan": true },
-          "output": { "agents": [], "count": 0 }
-        }
-      ]
+      "description": "Discovers available A2A agents in the network",
+      "action": "/api/orchestrator"
     },
     {
-      "id": "monitor_system_health",
+      "id": "monitor_health",
       "name": "Monitor System Health",
-      "description": "Monitors health and status of all connected agents and services",
-      "action": "/api/orchestrator",
-      "tags": ["monitoring", "health", "system"],
-      "inputModes": ["application/json"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": { "action": "monitor_system_health", "check_all": true },
-          "output": { "agents": [], "overall_health": "healthy" }
-        }
-      ]
-    },
-    {
-      "id": "orchestrator_chat",
-      "name": "Orchestrator Chat",
-      "description": "Interactive chat interface for orchestrator management and workflow execution",
-      "action": "/api/orchestrator",
-      "tags": ["chat", "orchestration", "interactive"],
-      "inputModes": ["application/json", "text/plain"],
-      "outputModes": ["application/json"],
-      "examples": [
-        {
-          "input": {
-            "action": "orchestrator_chat",
-            "message": "Generate a quiz about AI"
-          },
-          "output": { "response": "Workflow initiated", "status": "processing" }
-        }
-      ]
+      "description": "Monitors health of connected agents",
+      "action": "/api/orchestrator"
     }
   ]
 }
