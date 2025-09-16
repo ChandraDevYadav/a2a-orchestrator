@@ -312,36 +312,17 @@ export class QuizApiClient {
   private generateMockQuiz(input: string): QuizGenerationResponse {
     return {
       data: {
-        quiz_questions: [
-          {
-            question: `What is the main topic of: ${input}?`,
-            correct_answer: "A",
-            answers: [
-              { answer: "The topic mentioned in the question" },
-              { answer: "Something completely different" },
-              { answer: "A random topic" },
-              { answer: "None of the above" },
-            ],
-            difficulty: "medium",
-          },
-          {
-            question: `Which of the following is most relevant to: ${input}?`,
-            correct_answer: "B",
-            answers: [
-              { answer: "Option A" },
-              { answer: "The most relevant option" },
-              { answer: "Option C" },
-              { answer: "Option D" },
-            ],
-            difficulty: "medium",
-          },
-          {
-            question: `True or False: ${input} is an important topic.`,
-            correct_answer: "A",
-            answers: [{ answer: "True" }, { answer: "False" }],
-            difficulty: "easy",
-          },
-        ],
+        quiz_questions: Array.from({ length: 20 }, (_, i) => ({
+          question: `Question ${i + 1}: What is the main topic of: ${input}?`,
+          correct_answer: "A",
+          answers: [
+            { answer: "The topic mentioned in the question" },
+            { answer: "Something completely different" },
+            { answer: "A random topic" },
+            { answer: "None of the above" },
+          ],
+          difficulty: "medium",
+        })),
       },
     };
   }

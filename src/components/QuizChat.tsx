@@ -7,6 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { quizApiClient } from "@/lib/enhanced-api-client";
 import { QuizData } from "@/types/quiz";
 import { Send, FileText, Bot, User, Loader2 } from "lucide-react";
+import {
+  deepSeekChatAgent,
+  DeepSeekChatMessage,
+} from "@/lib/deepseek-chat-agent";
 
 interface ChatMessage {
   id: string;
@@ -83,90 +87,66 @@ export function QuizChat({
     );
   };
 
-  // Function to determine if input is a quiz request - be more specific
-  const isQuizRequest = (userInput: string): boolean => {
-    const lowerInput = userInput.toLowerCase();
-
-    // More specific quiz request patterns
-    const specificQuizPatterns = [
-      "create a quiz",
-      "generate a quiz",
-      "make a quiz",
-      "quiz about",
-      "quiz on",
-      "quiz for",
-      "create quiz",
-      "generate quiz",
-      "make quiz",
-      "create questions",
-      "generate questions",
-      "multiple choice questions",
-      "quiz with",
-    ];
-
-    // Check for specific patterns first
-    if (specificQuizPatterns.some((pattern) => lowerInput.includes(pattern))) {
-      return true;
+  // Function to determine if input is a quiz request using DeepSeek AI
+  const isQuizRequest = async (userInput: string): Promise<boolean> => {
+    try {
+      // Use DeepSeek AI to classify if this is a quiz request
+      return await deepSeekChatAgent.isQuizRequest(userInput);
+    } catch (error) {
+      console.error("Error classifying quiz request:", error);
+      // Fallback to simple pattern matching
+      const lowerInput = userInput.toLowerCase();
+      return (
+        (lowerInput.includes("create") && lowerInput.includes("quiz")) ||
+        (lowerInput.includes("generate") && lowerInput.includes("quiz")) ||
+        (lowerInput.includes("make") && lowerInput.includes("quiz")) ||
+        lowerInput.includes("quiz about") ||
+        lowerInput.includes("quiz on")
+      );
     }
-
-    // Check for quiz + context words (more restrictive)
-    if (
-      lowerInput.includes("quiz") &&
-      (lowerInput.includes("about") ||
-        lowerInput.includes("on") ||
-        lowerInput.includes("for") ||
-        lowerInput.includes("with"))
-    ) {
-      return true;
-    }
-
-    // Check for question-related terms only if they're not standalone
-    if (
-      (lowerInput.includes("questions") ||
-        lowerInput.includes("test") ||
-        lowerInput.includes("exam")) &&
-      (lowerInput.includes("create") ||
-        lowerInput.includes("generate") ||
-        lowerInput.includes("make"))
-    ) {
-      return true;
-    }
-
-    return false;
   };
 
-  // Function to handle general chat responses
-  const getGeneralResponse = (userInput: string): string => {
-    const lowerInput = userInput.toLowerCase();
+  // Function to handle general chat responses using DeepSeek AI
+  const getGeneralResponse = async (userInput: string): Promise<string> => {
+    try {
+      // Convert chat history to DeepSeek format
+      const chatHistory: DeepSeekChatMessage[] = messages
+        .filter((msg) => msg.type !== "system")
+        .slice(-10) // Keep last 10 messages for context
+        .map((msg) => ({
+          role: msg.type === "user" ? "user" : "assistant",
+          content: msg.content,
+        }));
 
-    // Greeting responses
-    if (
-      lowerInput.includes("hello") ||
-      lowerInput.includes("hi") ||
-      lowerInput.includes("hey")
-    ) {
-      return "Hello! I'm your AI Assistant. I can help you create quizzes on any topic or answer general questions. What would you like to do today?";
+      // Use DeepSeek AI to generate response
+      const response = await deepSeekChatAgent.generateResponse(
+        userInput,
+        chatHistory
+      );
+      return response.content;
+    } catch (error) {
+      console.error("Error generating DeepSeek response:", error);
+
+      // Fallback to simple responses
+      const lowerInput = userInput.toLowerCase();
+
+      if (
+        lowerInput.includes("hello") ||
+        lowerInput.includes("hi") ||
+        lowerInput.includes("hey")
+      ) {
+        return "Hello! I'm your AI Assistant. I can help you create quizzes on any topic or answer general questions. What would you like to do today?";
+      }
+
+      if (
+        lowerInput.includes("help") ||
+        lowerInput.includes("what can you do")
+      ) {
+        return "I can help you in two ways:\n\n1. **Create Quizzes**: Just ask me to 'create a quiz about [topic]' and I'll generate multiple-choice questions for you.\n\n2. **General Questions**: Ask me anything and I'll do my best to help!\n\nWhat would you like to try?";
+      }
+
+      return "I'm here to help! I can answer questions or help you create quizzes. What would you like to know?";
     }
-
-    // Help responses
-    if (lowerInput.includes("help") || lowerInput.includes("what can you do")) {
-      return "I can help you in two ways:\n\n1. **Create Quizzes**: Just ask me to 'create a quiz about [topic]' and I'll generate multiple-choice questions for you.\n\n2. **General Questions**: Ask me anything and I'll do my best to help!\n\nWhat would you like to try?";
-    }
-
-    // Thank you responses
-    if (lowerInput.includes("thank") || lowerInput.includes("thanks")) {
-      return "You're welcome! I'm here to help. Feel free to ask me to create a quiz about any topic or ask me any questions you have!";
-    }
-
-    // Default responses
-    const responses = [
-      "That's interesting! I'm here to help you create quizzes and answer questions. If you'd like me to create a quiz about this topic, just let me know!",
-      "Great question! I can help you learn more about this by creating a quiz if you're interested, or I can try to answer your question directly.",
-      "I understand! I'm here to help with quiz creation and general questions. What would you like to explore?",
-      "That's a good point! If you'd like to test your knowledge on this topic, I can create a quiz for you, or I can help answer your question.",
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
   };
 
   const handleSend = async () => {
@@ -187,43 +167,37 @@ export function QuizChat({
     setGenerationProgress(0);
 
     try {
-      // Check if this is a quiz request
-      if (isQuizRequest(userInput)) {
-        // Handle quiz generation
-        let progressInterval: NodeJS.Timeout | null = null;
-        let progressUpdateInterval: NodeJS.Timeout | null = null;
+      // Send ALL requests to Orchestrator for centralized decision making
+      console.log(
+        "🎯 Sending request to Orchestrator for centralized decision..."
+      );
 
-        // Simulate progress updates
-        progressInterval = setInterval(() => {
-          setProgress((prev) => {
-            const newProgress = prev >= 90 ? 90 : prev + Math.random() * 15;
-            if (prev >= 90 && progressInterval) {
-              clearInterval(progressInterval);
-            }
-            return newProgress;
-          });
-        }, 500);
+      const response = await fetch("/api/orchestrator", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "handle_centralized_request",
+          query: userInput,
+          context: {
+            chatMode: "mixed",
+            timestamp: new Date().toISOString(),
+          },
+        }),
+      });
 
-        // Update generation progress separately
-        let currentProgress = 0;
-        progressUpdateInterval = setInterval(() => {
-          currentProgress =
-            currentProgress >= 90 ? 90 : currentProgress + Math.random() * 15;
-          setGenerationProgress(currentProgress);
-          if (currentProgress >= 90 && progressUpdateInterval) {
-            clearInterval(progressUpdateInterval);
-          }
-        }, 500);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-        const response = await quizApiClient.generateQuiz(userInput);
+      const result = await response.json();
+      console.log("✅ Orchestrator response:", result);
 
-        if (progressInterval) clearInterval(progressInterval);
-        if (progressUpdateInterval) clearInterval(progressUpdateInterval);
-        setProgress(100);
-        setGenerationProgress(100);
-
-        // Update bot message with success
-        const quizQuestions = response.data?.quiz_questions || [];
+      // Handle the response based on type
+      if (result.type === "quiz") {
+        // Quiz generation completed
+        const quizQuestions = result.result?.data?.quiz_questions || [];
         const questionCount = Array.isArray(quizQuestions)
           ? quizQuestions.length
           : 0;
@@ -236,39 +210,28 @@ export function QuizChat({
 
         // Small delay to show completion
         setTimeout(() => {
-          if (response.data && response.data.quiz_questions) {
-            onQuizGenerated(response.data);
-          } else {
-            // Fallback: create a simple quiz if data structure is unexpected
-            const fallbackQuiz = {
-              quiz_questions: [
-                {
-                  question: `What did you want to learn about ${userInput}?`,
-                  correct_answer: "A",
-                  answers: [
-                    { answer: "The main concepts and principles" },
-                    { answer: "Historical background" },
-                    { answer: "Future applications" },
-                    { answer: "Personal experiences" },
-                  ],
-                  difficulty: "medium",
-                },
-              ],
-            };
-            onQuizGenerated(fallbackQuiz);
+          if (result.result?.data && result.result.data.quiz_questions) {
+            onQuizGenerated(result.result.data);
           }
         }, 500);
+      } else if (result.type === "chat") {
+        // General chat response
+        updateMessage(botMessageId, result.response, false);
+      } else if (result.type === "error") {
+        // Error response
+        updateMessage(botMessageId, result.response, false);
       } else {
-        // Handle general chat
-        const response = getGeneralResponse(userInput);
-
-        // Simulate typing delay
-        setTimeout(() => {
-          updateMessage(botMessageId, response, false);
-        }, 1000);
+        // Fallback response
+        updateMessage(
+          botMessageId,
+          "I'm here to help! What would you like to know?",
+          false
+        );
       }
     } catch (error: any) {
-      // Update bot message with error
+      console.error("Orchestrator request failed:", error);
+
+      // Fallback to simple response
       updateMessage(
         botMessageId,
         `I apologize, but I encountered an error: ${

@@ -81,6 +81,10 @@ export async function POST(request: NextRequest) {
         result = await getOrchestratorService().handleGeneralMCPQuery(data);
         break;
 
+      case "handle_centralized_request":
+        result = await getOrchestratorService().handleCentralizedRequest(data);
+        break;
+
       default:
         return NextResponse.json(
           { error: `Unknown action: ${action}` },

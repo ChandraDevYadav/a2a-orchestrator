@@ -713,6 +713,368 @@ export class NextJSOrchestratorService {
   }
 
   /**
+   * Centralized decision maker - determines whether to route to Backend or DeepSeek
+   */
+  async handleCentralizedRequest(requestData: any): Promise<any> {
+    const { query, context } = requestData;
+
+    // Add query to chat history
+    this.addChatMessage({
+      type: "user",
+      content: query,
+      metadata: { status: "processing" },
+    });
+
+    try {
+      // Use DeepSeek AI to classify the request
+      const isQuizRequest = await this.classifyRequest(query);
+
+      if (isQuizRequest) {
+        // Route to Backend Agent for quiz generation
+        console.log("🎯 Orchestrator Decision: Quiz Request → Backend Agent");
+        return await this.routeToBackendAgent(query, context);
+      } else {
+        // Route to DeepSeek API for general chat
+        console.log("💬 Orchestrator Decision: Chat Request → DeepSeek API");
+        return await this.routeToDeepSeekAPI(query, context);
+      }
+    } catch (error) {
+      console.error("Error in centralized request handling:", error);
+
+      // Fallback to simple pattern matching
+      const lowerQuery = query.toLowerCase();
+      const isQuizFallback =
+        (lowerQuery.includes("create") && lowerQuery.includes("quiz")) ||
+        (lowerQuery.includes("generate") && lowerQuery.includes("quiz")) ||
+        (lowerQuery.includes("make") && lowerQuery.includes("quiz")) ||
+        lowerQuery.includes("quiz about") ||
+        lowerQuery.includes("quiz on");
+
+      try {
+        if (isQuizFallback) {
+          return await this.routeToBackendAgent(query, context);
+        } else {
+          return await this.routeToDeepSeekAPI(query, context);
+        }
+      } catch (fallbackError) {
+        console.error("Fallback routing also failed:", fallbackError);
+
+        // Ultimate fallback - return a simple response
+        this.addChatMessage({
+          type: "agent",
+          content:
+            "I apologize, but I'm experiencing technical difficulties. Please try again later or rephrase your request.",
+          metadata: { agentId: "fallback-agent", status: "error" },
+        });
+
+        return {
+          type: "error",
+          response:
+            "I apologize, but I'm experiencing technical difficulties. Please try again later or rephrase your request.",
+          agentId: "fallback-agent",
+          chatHistory: this.getChatHistory(),
+        };
+      }
+    }
+  }
+
+  /**
+   * Classify request using DeepSeek AI
+   */
+  private async classifyRequest(query: string): Promise<boolean> {
+    try {
+      // Import OpenAI dynamically
+      const OpenAI = (await import("openai")).default;
+
+      const client = new OpenAI({
+        apiKey: "sk-6796ea0f38c7499dbf47c7ff2a026966",
+        baseURL: "https://api.deepseek.com",
+      });
+
+      const completion = await client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are a classifier that determines if a user message is requesting quiz creation.
+
+Return ONLY "true" or "false" based on whether the user wants to create a quiz.
+
+Examples of quiz requests:
+- "create a quiz about science"
+- "generate a quiz on history"
+- "make a quiz for math"
+- "quiz about programming"
+- "create questions about biology"
+
+Examples of NOT quiz requests:
+- "hello"
+- "what is photosynthesis?"
+- "help me understand calculus"
+- "tell me about the weather"
+- "how are you?"`,
+          },
+          {
+            role: "user",
+            content: query,
+          },
+        ],
+        max_tokens: 10,
+        temperature: 0.1,
+        stream: false,
+      });
+
+      const response = completion.choices[0]?.message?.content
+        ?.toLowerCase()
+        .trim();
+      return response === "true";
+    } catch (error) {
+      console.error("DeepSeek classification error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Route to Backend Agent for quiz generation
+   */
+  private async routeToBackendAgent(query: string, context: any): Promise<any> {
+    try {
+      // Add routing message to chat
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Routing quiz request to Backend Agent...`,
+        metadata: { status: "routing" },
+      });
+
+      // Use existing quiz workflow
+      const result = await this.orchestrateQuizWorkflow({
+        query,
+        context: {
+          type: "quiz_generation",
+          difficulty: "medium",
+          questionCount: 20,
+          ...context,
+        },
+      });
+
+      // Add completion message
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Quiz generation completed successfully!`,
+        metadata: { status: "completed" },
+      });
+
+      return {
+        type: "quiz",
+        result,
+        agentId: "backend-quiz-agent",
+        chatHistory: this.getChatHistory(),
+      };
+    } catch (error) {
+      console.error("Backend agent routing failed:", error);
+
+      // Fallback to DeepSeek API for quiz generation
+      console.log("🔄 Falling back to DeepSeek API for quiz generation...");
+      return await this.routeToDeepSeekAPIForQuiz(query, context);
+    }
+  }
+
+  /**
+   * Route to DeepSeek API for quiz generation (fallback)
+   */
+  private async routeToDeepSeekAPIForQuiz(
+    query: string,
+    context: any
+  ): Promise<any> {
+    try {
+      // Add fallback message to chat
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Backend agent unavailable, using DeepSeek API for quiz generation...`,
+        metadata: { status: "fallback" },
+      });
+
+      // Import OpenAI dynamically
+      const OpenAI = (await import("openai")).default;
+
+      const client = new OpenAI({
+        apiKey: "sk-6796ea0f38c7499dbf47c7ff2a026966",
+        baseURL: "https://api.deepseek.com",
+      });
+
+      const completion = await client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are a quiz generation expert. Create a comprehensive quiz based on the user's request.
+
+Generate exactly 20 multiple-choice questions with 4 options each (A, B, C, D). Format your response as JSON:
+
+{
+  "quiz_questions": [
+    {
+      "question": "Question text here",
+      "correct_answer": "A",
+      "answers": [
+        {"answer": "Option A"},
+        {"answer": "Option B"},
+        {"answer": "Option C"},
+        {"answer": "Option D"}
+      ],
+      "difficulty": "medium"
+    }
+  ]
+}
+
+Make sure the questions are educational, clear, and the correct answers are accurate.`,
+          },
+          {
+            role: "user",
+            content: `Create a quiz about: ${query}`,
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+        stream: false,
+      });
+
+      const response = completion.choices[0]?.message?.content || "{}";
+
+      try {
+        const quizData = JSON.parse(response);
+
+        // Add completion message
+        this.addChatMessage({
+          type: "orchestrator",
+          content: `Quiz generated successfully using DeepSeek API!`,
+          metadata: { status: "completed" },
+        });
+
+        return {
+          type: "quiz",
+          result: {
+            data: quizData,
+          },
+          agentId: "deepseek-quiz-agent",
+          chatHistory: this.getChatHistory(),
+        };
+      } catch (parseError) {
+        // If JSON parsing fails, create a comprehensive quiz with 20 questions
+        const fallbackQuiz = {
+          quiz_questions: Array.from({ length: 20 }, (_, i) => ({
+            question: `Question ${i + 1}: What is the main topic of ${query}?`,
+            correct_answer: "A",
+            answers: [
+              { answer: "The primary subject matter" },
+              { answer: "A secondary topic" },
+              { answer: "An unrelated subject" },
+              { answer: "A random topic" },
+            ],
+            difficulty: "medium",
+          })),
+        };
+
+        return {
+          type: "quiz",
+          result: {
+            data: fallbackQuiz,
+          },
+          agentId: "fallback-quiz-agent",
+          chatHistory: this.getChatHistory(),
+        };
+      }
+    } catch (error) {
+      console.error("DeepSeek API quiz generation failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Route to DeepSeek API for general chat
+   */
+  private async routeToDeepSeekAPI(query: string, context: any): Promise<any> {
+    try {
+      // Add routing message to chat
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Routing chat request to DeepSeek API...`,
+        metadata: { status: "routing" },
+      });
+
+      // Import OpenAI dynamically
+      const OpenAI = (await import("openai")).default;
+
+      const client = new OpenAI({
+        apiKey: "sk-6796ea0f38c7499dbf47c7ff2a026966",
+        baseURL: "https://api.deepseek.com",
+      });
+
+      // Get recent chat history for context
+      const recentHistory = this.chatHistory
+        .filter((msg) => msg.type !== "system")
+        .slice(-10)
+        .map((msg) => ({
+          role:
+            msg.type === "user" ? ("user" as const) : ("assistant" as const),
+          content: msg.content,
+        }));
+
+      const completion = await client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful AI assistant integrated into a quiz application. You can:
+
+1. **Answer general questions** - Provide helpful, accurate, and friendly responses
+2. **Help with quiz creation** - When users ask to create quizzes, guide them on how to do so
+3. **Provide educational support** - Help with learning and understanding various topics
+
+Guidelines:
+- Be conversational and friendly
+- Keep responses concise but informative
+- If someone asks to create a quiz, explain that they should use phrases like "create a quiz about [topic]" or "generate a quiz on [subject]"
+- Always be helpful and encouraging
+- If you don't know something, say so honestly
+
+Current context: You're helping a user who is using a quiz application.`,
+          },
+          ...recentHistory,
+          {
+            role: "user",
+            content: query,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+        stream: false,
+      });
+
+      const response =
+        completion.choices[0]?.message?.content ||
+        "I apologize, but I couldn't generate a response.";
+
+      // Add response to chat history
+      this.addChatMessage({
+        type: "agent",
+        content: response,
+        metadata: { agentId: "deepseek-chat-agent", status: "completed" },
+      });
+
+      return {
+        type: "chat",
+        response,
+        agentId: "deepseek-chat-agent",
+        chatHistory: this.getChatHistory(),
+      };
+    } catch (error) {
+      console.error("DeepSeek API routing failed:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Handle general MCP queries that don't require specific agent routing
    */
   async handleGeneralMCPQuery(requestData: any): Promise<any> {
@@ -1001,7 +1363,7 @@ How can I help you today?`;
     const {
       topic, // Required: The subject matter for the quiz
       difficulty = "intermediate", // Default difficulty level
-      question_count = 5, // Default number of questions to generate
+      question_count = 20, // Default number of questions to generate
     } = requestData;
 
     try {
