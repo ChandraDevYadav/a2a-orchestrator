@@ -713,6 +713,7 @@ export class NextJSOrchestratorService {
   }
 
   /**
+   * Most important function in the orchestrator service
    * Centralized decision maker - determines whether to route to Backend or DeepSeek
    */
   async handleCentralizedRequest(requestData: any): Promise<any> {
@@ -827,6 +828,7 @@ Examples of NOT quiz requests:
       const response = completion.choices[0]?.message?.content
         ?.toLowerCase()
         .trim();
+      console.log("DeepSeek classification response:", response);
       return response === "true";
     } catch (error) {
       console.error("DeepSeek classification error:", error);
