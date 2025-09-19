@@ -13,6 +13,7 @@
     "lint": "next lint",
     "test:a2a": "node test-a2a-orchestrator-integration.js",
     "test:integration": "node test-a2a-orchestrator-integration.js",
+    "test:integrated": "node test-integrated-orchestrator.js",
     "install-deps": "npm install next@latest react@latest react-dom@latest typescript @types/react @types/react-dom @types/node tailwindcss postcss autoprefixer @radix-ui/react-slot @radix-ui/react-dialog @radix-ui/react-toast @radix-ui/react-progress class-variance-authority clsx lucide-react tailwind-merge tailwindcss-animate eslint eslint-config-next @a2a-js/sdk"
   },
   "dependencies": {

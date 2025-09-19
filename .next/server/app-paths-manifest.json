@@ -1,4 +1,6 @@
 {
-  "/.well-known/agent-card.json/route": "app/.well-known/agent-card.json/route.js",
-  "/page": "app/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/api/orchestrator/route": "app/api/orchestrator/route.js",
+  "/.well-known/agent-card.json/route": "app/.well-known/agent-card.json/route.js"
 }

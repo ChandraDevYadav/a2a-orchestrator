@@ -1,27 +1,24 @@
 import { QuizGenerationRequest, QuizGenerationResponse } from "@/types/quiz";
 import { realQuizA2AClient } from "./a2a-client-real";
-import { orchestratorClient } from "./orchestrator-client";
+import { localOrchestratorClient } from "./local-orchestrator-client";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001";
-const ORCHESTRATOR_URL =
-  process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || "http://localhost:5000";
+// Using local orchestrator integrated into Next.js API routes
+const USE_LOCAL_ORCHESTRATOR = true;
 
 export class QuizApiClient {
   private baseUrl: string;
-  private orchestratorUrl: string;
   private useA2A: boolean;
   private useRealA2A: boolean;
   private useOrchestrator: boolean;
 
   constructor(
     baseUrl: string = API_BASE_URL,
-    orchestratorUrl: string = ORCHESTRATOR_URL,
     useA2A: boolean = true,
     useRealA2A: boolean = true,
-    useOrchestrator: boolean = true
+    useOrchestrator: boolean = USE_LOCAL_ORCHESTRATOR
   ) {
     this.baseUrl = baseUrl;
-    this.orchestratorUrl = orchestratorUrl;
     this.useA2A = useA2A;
     this.useRealA2A = useRealA2A;
     this.useOrchestrator = useOrchestrator;
@@ -32,7 +29,7 @@ export class QuizApiClient {
     if (this.useOrchestrator) {
       try {
         console.log("🎯 Using A2A-enabled orchestrator for quiz generation...");
-        const result = await orchestratorClient.orchestrateQuizWorkflow({
+        const result = await localOrchestratorClient.orchestrateQuizWorkflow({
           query: input,
           context: {
             type: "quiz_generation",
@@ -141,7 +138,7 @@ export class QuizApiClient {
         console.log(
           "🎯 Using A2A orchestrator for quiz generation with usage tracking..."
         );
-        const result = await orchestratorClient.executeAgentWithResilience(
+        const result = await localOrchestratorClient.executeAgentWithResilience(
           `Generate quiz: ${input}`,
           { type: "quiz_generation_with_usage", input }
         );
@@ -183,7 +180,7 @@ export class QuizApiClient {
     if (this.useOrchestrator) {
       try {
         console.log("🎯 Using A2A orchestrator for health check...");
-        const health = await orchestratorClient.monitorSystemHealth();
+        const health = await localOrchestratorClient.monitorSystemHealth();
         console.log("✅ A2A orchestrator health check completed:", health);
         const healthData = health as {
           overall_health?: string;
@@ -218,10 +215,10 @@ export class QuizApiClient {
   async getBackendAgentInfo() {
     if (this.useOrchestrator) {
       try {
-        const agents = await orchestratorClient.getAllAgents();
+        const agents = await localOrchestratorClient.getAllAgents();
         return {
           agents,
-          orchestratorUrl: this.orchestratorUrl,
+          orchestratorUrl: "local", // Using local integrated orchestrator
           timestamp: new Date().toISOString(),
         };
       } catch (error) {
@@ -245,10 +242,10 @@ export class QuizApiClient {
   async getBackendSkills() {
     if (this.useOrchestrator) {
       try {
-        const workflows = await orchestratorClient.getAllWorkflows();
+        const workflows = await localOrchestratorClient.getAllWorkflows();
         return {
           workflows,
-          orchestratorUrl: this.orchestratorUrl,
+          orchestratorUrl: "local", // Using local integrated orchestrator
           timestamp: new Date().toISOString(),
         };
       } catch (error) {
@@ -273,7 +270,7 @@ export class QuizApiClient {
     if (this.useOrchestrator) {
       try {
         console.log("🎯 Using A2A orchestrator for agent discovery...");
-        const result = await orchestratorClient.discoverAgents();
+        const result = await localOrchestratorClient.discoverAgents();
         console.log("✅ A2A orchestrator agent discovery completed:", result);
         return result;
       } catch (error) {

@@ -11,8 +11,7 @@ import { Settings, Save, RefreshCw } from "lucide-react";
 
 export function OrchestratorConfiguration() {
   const [config, setConfig] = useState({
-    orchestratorUrl:
-      process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || "http://localhost:5000",
+    orchestratorUrl: "local", // Using integrated orchestrator
     backendUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4001",
     useOrchestrator: true,
     useA2A: true,
@@ -35,18 +34,34 @@ export function OrchestratorConfiguration() {
     type: "orchestrator" | "backend"
   ) => {
     try {
-      const endpoint = type === "orchestrator" ? "/health" : "/health";
-      const response = await fetch(`${url}${endpoint}`);
-
-      if (response.ok) {
-        setTestResults((prev) => ({
-          ...prev,
-          [type]: true,
-          error: null,
-        }));
-        return true;
+      if (type === "orchestrator" && url === "local") {
+        // Test local integrated orchestrator
+        const response = await fetch("/api/orchestrator?action=health");
+        if (response.ok) {
+          setTestResults((prev) => ({
+            ...prev,
+            orchestrator: true,
+            error: null,
+          }));
+          return true;
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
       } else {
-        throw new Error(`HTTP ${response.status}`);
+        // Test external services
+        const endpoint = type === "orchestrator" ? "/health" : "/health";
+        const response = await fetch(`${url}${endpoint}`);
+
+        if (response.ok) {
+          setTestResults((prev) => ({
+            ...prev,
+            [type]: true,
+            error: null,
+          }));
+          return true;
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
       }
     } catch (error) {
       setTestResults((prev) => ({
@@ -126,7 +141,7 @@ export function OrchestratorConfiguration() {
                   orchestratorUrl: e.target.value,
                 }))
               }
-              placeholder="http://localhost:5000"
+              placeholder="local (integrated)"
             />
           </div>
 

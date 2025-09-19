@@ -218,10 +218,8 @@ export function UnifiedChat({
           // Show first few questions as preview
           const previewQuestions = quizData.quiz_questions.slice(0, 3);
           previewQuestions.forEach((question: any, index: number) => {
-            assistantContent += `**Question ${index + 1}:** ${
-              question.question
-            }\n`;
-            assistantContent += `**Correct Answer:** ${question.correct_answer}\n\n`;
+            assistantContent += `Question ${index + 1}: ${question.question}\n`;
+            assistantContent += `Correct Answer: ${question.correct_answer}\n\n`;
           });
 
           if (quizData.quiz_questions.length > 3) {
@@ -277,15 +275,15 @@ export function UnifiedChat({
           assistantContent = `I've generated a comprehensive manual! Here's what I created:\n\n`;
 
           if (manualData.title) {
-            assistantContent += `**Title:** ${manualData.title}\n\n`;
+            assistantContent += `Title: ${manualData.title}\n\n`;
           }
 
           if (manualData.introduction?.purpose) {
-            assistantContent += `**Purpose:** ${manualData.introduction.purpose}\n\n`;
+            assistantContent += `Purpose: ${manualData.introduction.purpose}\n\n`;
           }
 
           if (manualData.sections && manualData.sections.length > 0) {
-            assistantContent += `**Sections:** ${manualData.sections.length} sections covering:\n`;
+            assistantContent += `Sections: ${manualData.sections.length} sections covering:\n`;
             manualData.sections.forEach((section: any, index: number) => {
               assistantContent += `- ${
                 section.title || `Section ${index + 1}`

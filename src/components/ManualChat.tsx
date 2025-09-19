@@ -89,15 +89,15 @@ export function ManualChat({ onManualGenerated }: ManualChatProps) {
         assistantContent = `I've generated a comprehensive manual for "${input.trim()}". Here's what I've created:\n\n`;
 
         if (manual.title) {
-          assistantContent += `**Title:** ${manual.title}\n\n`;
+          assistantContent += `Title: ${manual.title}\n\n`;
         }
 
         if (manual.introduction?.purpose) {
-          assistantContent += `**Purpose:** ${manual.introduction.purpose}\n\n`;
+          assistantContent += `Purpose: ${manual.introduction.purpose}\n\n`;
         }
 
         if (manual.sections && manual.sections.length > 0) {
-          assistantContent += `**Sections:** ${manual.sections.length} sections covering:\n`;
+          assistantContent += `Sections: ${manual.sections.length} sections covering:\n`;
           manual.sections.forEach((section: any, index: number) => {
             assistantContent += `- ${
               section.title || `Section ${index + 1}`
