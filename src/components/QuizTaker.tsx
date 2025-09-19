@@ -24,6 +24,33 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
   const progress =
     ((currentQuestionIndex + 1) / session.questions.length) * 100;
 
+  const handleCompleteQuiz = useCallback(() => {
+    if (isCompleted) return;
+
+    // Complete remaining questions as unanswered
+    const remainingResults: QuizResult[] = [];
+    for (let i = currentQuestionIndex; i < session.questions.length; i++) {
+      remainingResults.push({
+        questionIndex: i,
+        selectedAnswer: "",
+        isCorrect: false,
+      });
+    }
+
+    const allResults = [...session.results, ...remainingResults];
+    const score = allResults.filter((r) => r.isCorrect).length;
+    const completedSession = {
+      ...session,
+      results: allResults,
+      score,
+      completedAt: new Date(),
+    };
+
+    setIsCompleted(true);
+    setShowResults(true);
+    onComplete(completedSession);
+  }, [isCompleted, currentQuestionIndex, session, onComplete]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -76,33 +103,6 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
       setSelectedAnswer("");
     }
   };
-
-  const handleCompleteQuiz = useCallback(() => {
-    if (isCompleted) return;
-
-    // Complete remaining questions as unanswered
-    const remainingResults: QuizResult[] = [];
-    for (let i = currentQuestionIndex; i < session.questions.length; i++) {
-      remainingResults.push({
-        questionIndex: i,
-        selectedAnswer: "",
-        isCorrect: false,
-      });
-    }
-
-    const allResults = [...session.results, ...remainingResults];
-    const score = allResults.filter((r) => r.isCorrect).length;
-    const completedSession = {
-      ...session,
-      results: allResults,
-      score,
-      completedAt: new Date(),
-    };
-
-    setIsCompleted(true);
-    setShowResults(true);
-    onComplete(completedSession);
-  }, [isCompleted, currentQuestionIndex, session, onComplete]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
