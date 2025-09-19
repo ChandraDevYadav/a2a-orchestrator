@@ -45,13 +45,20 @@ export class EnvironmentAgentManager {
             instances: ["http://localhost:3000", "http://localhost:3001"],
           },
           backend: {
-            url: "http://localhost:4001",
-            instances: ["http://localhost:4001", "http://localhost:4002"],
+            url:
+              process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001",
+            instances: [
+              process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001",
+              process.env.NEXT_PUBLIC_MANUAL_AGENT_URL ||
+                "http://localhost:4002",
+            ],
           },
           services: [
             {
               name: "quiz-generator",
-              url: "http://localhost:4001",
+              url:
+                process.env.NEXT_PUBLIC_QUIZ_AGENT_URL ||
+                "http://localhost:4001",
               capabilities: ["quiz-generation", "content-analysis"],
             },
             {

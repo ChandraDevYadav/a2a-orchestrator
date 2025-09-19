@@ -57,11 +57,17 @@ export class NextJSOrchestratorService {
   private workflows: Map<string, Workflow> = new Map();
   private chatHistory: ChatMessage[] = [];
 
-  // Legacy hardcoded URLs (for backward compatibility)
+  // Dynamic agent URLs based on environment
   private knownAgentUrls: string[] = [
-    "http://localhost:3000/.well-known/agent-card.json", // Frontend agent (self)
-    "http://localhost:4001/.well-known/agent-card.json", // Backend agent
-    "http://localhost:4002/.well-known/agent-card.json", // Manual-creator agent
+    `${
+      process.env.NEXT_PUBLIC_ORCHESTRATOR_URL || "http://localhost:3000"
+    }/.well-known/agent-card.json`, // Frontend agent (self)
+    `${
+      process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001"
+    }/.well-known/agent-card.json`, // Backend agent
+    `${
+      process.env.NEXT_PUBLIC_MANUAL_AGENT_URL || "http://localhost:4002"
+    }/.well-known/agent-card.json`, // Manual-creator agent
   ];
 
   // Enhanced components
@@ -97,7 +103,7 @@ export class NextJSOrchestratorService {
     const backendAgent: AgentProfile = {
       id: "backend-quiz-agent",
       name: "Quiz Generation Agent",
-      url: "http://localhost:4001",
+      url: process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001",
       capabilities: [
         {
           id: "quiz-generation",
@@ -374,7 +380,9 @@ export class NextJSOrchestratorService {
     switch (capability) {
       case "quiz-generation":
       case "content-analysis":
-        return "http://localhost:4001";
+        return (
+          process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001"
+        );
       case "ui-orchestration":
       case "quiz-display":
         return "http://localhost:3000";
@@ -404,7 +412,9 @@ export class NextJSOrchestratorService {
     switch (capability) {
       case "quiz-generation":
       case "content-analysis":
-        return "http://localhost:4001";
+        return (
+          process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001"
+        );
       case "ui-orchestration":
       case "quiz-display":
         return "http://localhost:3000";
@@ -458,7 +468,11 @@ export class NextJSOrchestratorService {
       lowerQuery.includes("assessment") ||
       lowerQuery.includes("multiple choice")
     ) {
-      return this.agents.get("http://localhost:4001") || null;
+      return (
+        this.agents.get(
+          process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001"
+        ) || null
+      );
     }
 
     // Workflow/orchestration queries go to frontend agent
@@ -1588,7 +1602,8 @@ How can I help you today?`;
         steps: [
           {
             id: "step_1",
-            agentId: "http://localhost:4001", // Backend agent URL
+            agentId:
+              process.env.NEXT_PUBLIC_QUIZ_AGENT_URL || "http://localhost:4001", // Backend agent URL
             skillId: "generate-quiz", // Skill to generate quiz questions
             input: { topic, difficulty, question_count }, // Parameters for quiz generation
             status: "pending", // Initial status
@@ -1717,7 +1732,9 @@ How can I help you today?`;
 
       // Call the manual-creator-agent directly
       const response = await fetch(
-        "http://localhost:4002/api/actions/generate-manual",
+        `${
+          process.env.NEXT_PUBLIC_MANUAL_AGENT_URL || "http://localhost:4002"
+        }/api/actions/generate-manual`,
         {
           method: "POST",
           headers: {
