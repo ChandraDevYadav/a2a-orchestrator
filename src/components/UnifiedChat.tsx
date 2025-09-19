@@ -723,7 +723,7 @@ export function UnifiedChat({
                           : "manual.txt";
                       handleCopyContent(content);
                     }}
-                    className="h-7 px-2 text-xs text-gray-900 hover:bg-blue-600 hover:text-white "
+                    className="h-7 px-2 text-xs text-gray-900 hover:bg-blue-600 hover:text-white"
                   >
                     <Copy className="h-3 w-3 mr-1" />
                     Copy
