@@ -59,9 +59,9 @@ export class NextJSOrchestratorService {
 
   // Legacy hardcoded URLs (for backward compatibility)
   private knownAgentUrls: string[] = [
-    "http://localhost:3000", // Frontend agent (self)
-    "http://localhost:4001", // Backend agent
-    "http://localhost:5000", // Orchestrator agent (separate port)
+    "http://localhost:3000/.well-known/agent-card.json", // Frontend agent (self)
+    "http://localhost:4001/.well-known/agent-card.json", // Backend agent
+    "http://localhost:4002/.well-known/agent-card.json", // Manual-creator agent
   ];
 
   // Enhanced components
@@ -728,12 +728,18 @@ export class NextJSOrchestratorService {
 
     try {
       // Use DeepSeek AI to classify the request
-      const isQuizRequest = await this.classifyRequest(query);
+      const requestType = await this.classifyRequestType(query);
 
-      if (isQuizRequest) {
+      if (requestType === "quiz") {
         // Route to Backend Agent for quiz generation
         console.log("🎯 Orchestrator Decision: Quiz Request → Backend Agent");
         return await this.routeToBackendAgent(query, context);
+      } else if (requestType === "manual") {
+        // Route to Manual Generation
+        console.log(
+          "📖 Orchestrator Decision: Manual Request → Manual Generator"
+        );
+        return await this.routeToManualGenerator(query, context);
       } else {
         // Route to DeepSeek API for general chat
         console.log("💬 Orchestrator Decision: Chat Request → DeepSeek API");
@@ -751,9 +757,21 @@ export class NextJSOrchestratorService {
         lowerQuery.includes("quiz about") ||
         lowerQuery.includes("quiz on");
 
+      const isManualFallback =
+        (lowerQuery.includes("create") && lowerQuery.includes("manual")) ||
+        (lowerQuery.includes("generate") && lowerQuery.includes("manual")) ||
+        (lowerQuery.includes("make") && lowerQuery.includes("manual")) ||
+        (lowerQuery.includes("write") && lowerQuery.includes("manual")) ||
+        lowerQuery.includes("manual about") ||
+        lowerQuery.includes("manual on") ||
+        lowerQuery.includes("documentation about") ||
+        lowerQuery.includes("guide about");
+
       try {
         if (isQuizFallback) {
           return await this.routeToBackendAgent(query, context);
+        } else if (isManualFallback) {
+          return await this.routeToManualGenerator(query, context);
         } else {
           return await this.routeToDeepSeekAPI(query, context);
         }
@@ -780,7 +798,73 @@ export class NextJSOrchestratorService {
   }
 
   /**
-   * Classify request using DeepSeek AI
+   * Classify request type using DeepSeek AI
+   */
+  private async classifyRequestType(
+    query: string
+  ): Promise<"quiz" | "manual" | "chat"> {
+    try {
+      // Import OpenAI dynamically
+      const OpenAI = (await import("openai")).default;
+
+      const client = new OpenAI({
+        apiKey: "sk-6796ea0f38c7499dbf47c7ff2a026966",
+        baseURL: "https://api.deepseek.com",
+      });
+
+      const completion = await client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are a classifier that determines the type of user request. Return ONLY one of these three options: "quiz", "manual", or "chat".
+
+Examples of quiz requests:
+- "create a quiz about science"
+- "generate a quiz on history"
+- "make a quiz for math"
+- "quiz about programming"
+- "create questions about biology"
+
+Examples of manual requests:
+- "create a manual about React"
+- "generate documentation for Python"
+- "write a guide about cooking"
+- "manual about JavaScript"
+- "documentation about machine learning"
+
+Examples of chat requests:
+- "hello"
+- "what is photosynthesis?"
+- "help me understand calculus"
+- "tell me about the weather"
+- "how are you?"`,
+          },
+          {
+            role: "user",
+            content: query,
+          },
+        ],
+        max_tokens: 10,
+        temperature: 0.1,
+        stream: false,
+      });
+
+      const response = completion.choices[0]?.message?.content
+        ?.toLowerCase()
+        .trim();
+
+      if (response === "quiz") return "quiz";
+      if (response === "manual") return "manual";
+      return "chat";
+    } catch (error) {
+      console.error("DeepSeek classification error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Classify request using DeepSeek AI (legacy method for backward compatibility)
    */
   private async classifyRequest(query: string): Promise<boolean> {
     try {
@@ -840,44 +924,54 @@ Examples of NOT quiz requests:
    * Route to Backend Agent for quiz generation
    */
   private async routeToBackendAgent(query: string, context: any): Promise<any> {
+    // Temporarily skip backend agent due to complexity issues
+    // Go directly to DeepSeek API for quiz generation
+    console.log(
+      "🔄 Using DeepSeek API for quiz generation (backend agent temporarily disabled)..."
+    );
+    return await this.routeToDeepSeekAPIForQuiz(query, context);
+  }
+
+  /**
+   * Route to Manual Generator
+   */
+  private async routeToManualGenerator(
+    query: string,
+    context: any
+  ): Promise<any> {
     try {
       // Add routing message to chat
       this.addChatMessage({
         type: "orchestrator",
-        content: `Routing quiz request to Backend Agent...`,
+        content: `Routing manual request to Manual Creator Agent...`,
         metadata: { status: "routing" },
       });
 
-      // Use existing quiz workflow
-      const result = await this.orchestrateQuizWorkflow({
-        query,
-        context: {
-          type: "quiz_generation",
-          difficulty: "medium",
-          questionCount: 20,
-          ...context,
-        },
-      });
+      // Use DeepSeek API directly for manual generation (manual-creator-agent integration pending)
+      console.log("Using DeepSeek API for manual generation...");
+      const manual = await this.generateManualWithDeepSeek(query, "");
 
       // Add completion message
       this.addChatMessage({
         type: "orchestrator",
-        content: `Quiz generation completed successfully!`,
+        content: `Manual generation completed successfully!`,
         metadata: { status: "completed" },
       });
 
       return {
-        type: "quiz",
-        result,
-        agentId: "backend-quiz-agent",
+        type: "manual",
+        result: {
+          data: manual,
+        },
+        agentId: "manual-generator-agent",
         chatHistory: this.getChatHistory(),
       };
     } catch (error) {
-      console.error("Backend agent routing failed:", error);
+      console.error("Manual generator routing failed:", error);
 
-      // Fallback to DeepSeek API for quiz generation
-      console.log("🔄 Falling back to DeepSeek API for quiz generation...");
-      return await this.routeToDeepSeekAPIForQuiz(query, context);
+      // Fallback to general chat
+      console.log("🔄 Falling back to general chat...");
+      return await this.routeToDeepSeekAPI(query, context);
     }
   }
 
@@ -909,7 +1003,7 @@ Examples of NOT quiz requests:
         messages: [
           {
             role: "system",
-            content: `You are a quiz generation expert. Create a comprehensive quiz based on the user's request.
+            content: `You are an expert quiz creator specializing in educational content. Create a comprehensive quiz based on the user's request.
 
 Generate exactly 20 multiple-choice questions with 4 options each (A, B, C, D). Format your response as JSON:
 
@@ -929,22 +1023,43 @@ Generate exactly 20 multiple-choice questions with 4 options each (A, B, C, D). 
   ]
 }
 
-Make sure the questions are educational, clear, and the correct answers are accurate.`,
+CRITICAL REQUIREMENTS:
+- Create diverse, educational questions about the specific topic requested
+- Do NOT repeat the same question or similar questions
+- Each question should test different aspects of the topic
+- Questions should be factually accurate and educational
+- Vary the difficulty levels (easy, medium, hard)
+- Make sure correct answers are distributed randomly across A, B, C, D positions
+- Questions should be clear, concise, and well-written
+- Focus on important concepts, not trivial details
+- IMPORTANT: Return ONLY valid JSON, no additional text or explanations`,
           },
           {
             role: "user",
             content: `Create a quiz about: ${query}`,
           },
         ],
-        max_tokens: 2000,
+        max_tokens: 4000,
         temperature: 0.7,
         stream: false,
       });
 
       const response = completion.choices[0]?.message?.content || "{}";
+      console.log("DeepSeek API response:", response);
 
       try {
-        const quizData = JSON.parse(response);
+        // Try to extract JSON from the response if it contains extra text
+        let jsonString = response.trim();
+
+        // Look for JSON object boundaries
+        const jsonStart = jsonString.indexOf("{");
+        const jsonEnd = jsonString.lastIndexOf("}");
+
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          jsonString = jsonString.substring(jsonStart, jsonEnd + 1);
+        }
+
+        const quizData = JSON.parse(jsonString);
 
         // Add completion message
         this.addChatMessage({
@@ -962,27 +1077,102 @@ Make sure the questions are educational, clear, and the correct answers are accu
           chatHistory: this.getChatHistory(),
         };
       } catch (parseError) {
-        // If JSON parsing fails, create a comprehensive quiz with 20 questions
-        const fallbackQuiz = {
-          quiz_questions: Array.from({ length: 20 }, (_, i) => ({
-            question: `Question ${i + 1}: What is the main topic of ${query}?`,
-            correct_answer: "A",
-            answers: [
-              { answer: "The primary subject matter" },
-              { answer: "A secondary topic" },
-              { answer: "An unrelated subject" },
-              { answer: "A random topic" },
+        // If JSON parsing fails, try to generate a better fallback quiz
+        console.log(
+          "JSON parsing failed, attempting to generate fallback quiz..."
+        );
+
+        const topic =
+          query
+            .toLowerCase()
+            .replace(
+              /create a quiz about|quiz about|generate.*quiz.*about|make.*quiz.*about/gi,
+              ""
+            )
+            .trim() || "general knowledge";
+
+        // Try to generate a better quiz using a simpler prompt
+        try {
+          const fallbackCompletion = await client.chat.completions.create({
+            model: "deepseek-chat",
+            messages: [
+              {
+                role: "system",
+                content: `Create 20 educational multiple-choice questions about "${topic}". Each question should have 4 options (A, B, C, D). Return ONLY valid JSON in this exact format:
+
+{
+  "quiz_questions": [
+    {
+      "question": "What is...?",
+      "correct_answer": "A",
+      "answers": [
+        {"answer": "Option A"},
+        {"answer": "Option B"},
+        {"answer": "Option C"},
+        {"answer": "Option D"}
+      ],
+      "difficulty": "medium"
+    }
+  ]
+}
+
+Make questions educational and factually accurate about ${topic}.`,
+              },
+              {
+                role: "user",
+                content: `Create a quiz about ${topic}`,
+              },
             ],
-            difficulty: "medium",
-          })),
-        };
+            max_tokens: 3000,
+            temperature: 0.5,
+            stream: false,
+          });
+
+          const fallbackResponse =
+            fallbackCompletion.choices[0]?.message?.content || "{}";
+          console.log("Fallback API response:", fallbackResponse);
+
+          // Try to parse the fallback response
+          let fallbackJsonString = fallbackResponse.trim();
+          const fallbackJsonStart = fallbackJsonString.indexOf("{");
+          const fallbackJsonEnd = fallbackJsonString.lastIndexOf("}");
+
+          if (
+            fallbackJsonStart !== -1 &&
+            fallbackJsonEnd !== -1 &&
+            fallbackJsonEnd > fallbackJsonStart
+          ) {
+            fallbackJsonString = fallbackJsonString.substring(
+              fallbackJsonStart,
+              fallbackJsonEnd + 1
+            );
+          }
+
+          const fallbackQuiz = JSON.parse(fallbackJsonString);
+
+          return {
+            type: "quiz",
+            result: {
+              data: fallbackQuiz,
+            },
+            agentId: "deepseek-fallback-agent",
+            chatHistory: this.getChatHistory(),
+          };
+        } catch (fallbackError) {
+          console.error("Fallback quiz generation also failed:", fallbackError);
+        }
+
+        // Ultimate fallback - return error message
+        this.addChatMessage({
+          type: "orchestrator",
+          content: `Failed to generate quiz for "${topic}". Please try again with a different topic.`,
+          metadata: { status: "error" },
+        });
 
         return {
-          type: "quiz",
-          result: {
-            data: fallbackQuiz,
-          },
-          agentId: "fallback-quiz-agent",
+          type: "error",
+          response: `I apologize, but I couldn't generate a quiz about "${topic}". Please try again with a different topic or rephrase your request.`,
+          agentId: "error-agent",
           chatHistory: this.getChatHistory(),
         };
       }
@@ -1243,57 +1433,69 @@ How can I help you today?`;
 
     console.log("🔍 Starting A2A agent discovery...");
 
-    for (const url of this.knownAgentUrls) {
+    for (const agentCardUrl of this.knownAgentUrls) {
       try {
-        console.log(`🔍 Discovering agent at ${url}...`);
-        const agentCard = await this.getAgentCard(url);
+        console.log(`🔍 Discovering agent at ${agentCardUrl}...`);
+        const agentCard = await this.getAgentCard(agentCardUrl);
+
+        // Extract base URL from agent card URL
+        const baseUrl = agentCardUrl.replace(
+          "/.well-known/agent-card.json",
+          ""
+        );
 
         const agentInfo: AgentInfo = {
-          name: agentCard.name || `Agent-${url.split(":").pop()}`,
-          url: url,
+          name: agentCard.name || `Agent-${baseUrl.split(":").pop()}`,
+          url: baseUrl,
           skills: agentCard.skills?.map((s: any) => s.id) || [],
           status: "online",
           lastSeen: new Date(),
           capabilities: agentCard.capabilities,
         };
 
-        this.agents.set(url, agentInfo);
+        this.agents.set(baseUrl, agentInfo);
         discoveredAgents.push(agentInfo);
 
         console.log(
-          `✅ Successfully discovered agent: ${agentInfo.name} at ${url}`
+          `✅ Successfully discovered agent: ${agentInfo.name} at ${baseUrl}`
         );
 
         // Add discovery message to chat
         this.addChatMessage({
           type: "system",
-          content: `Discovered agent: ${agentInfo.name} at ${url} with ${agentInfo.skills.length} skills`,
+          content: `Discovered agent: ${agentInfo.name} at ${baseUrl} with ${agentInfo.skills.length} skills`,
           metadata: {
-            agentId: url,
+            agentId: baseUrl,
             skillId: agentInfo.skills.join(","),
             status: "discovered",
           },
         });
       } catch (error) {
-        console.error(`❌ Failed to discover agent at ${url}:`, error);
+        console.error(`❌ Failed to discover agent at ${agentCardUrl}:`, error);
+
+        // Extract base URL from agent card URL
+        const baseUrl = agentCardUrl.replace(
+          "/.well-known/agent-card.json",
+          ""
+        );
 
         const agentInfo: AgentInfo = {
-          name: `Unknown Agent (${url})`,
-          url: url,
+          name: `Unknown Agent (${baseUrl})`,
+          url: baseUrl,
           skills: [],
           status: "offline",
           lastSeen: new Date(),
         };
-        this.agents.set(url, agentInfo);
+        this.agents.set(baseUrl, agentInfo);
         discoveredAgents.push(agentInfo);
 
         // Add failure message to chat
         this.addChatMessage({
           type: "system",
-          content: `Failed to discover agent at ${url}: ${
+          content: `Failed to discover agent at ${baseUrl}: ${
             error instanceof Error ? error.message : "Unknown error"
           }`,
-          metadata: { agentId: url, status: "offline" },
+          metadata: { agentId: baseUrl, status: "offline" },
         });
       }
     }
@@ -1446,6 +1648,426 @@ How can I help you today?`;
   }
 
   /**
+   * Orchestrate manual generation workflow
+   */
+  async orchestrateManualWorkflow(requestData: any): Promise<any> {
+    // Generate unique workflow ID using timestamp for uniqueness
+    const workflowId = `manual_workflow_${Date.now()}`;
+
+    // Extract and set default values for manual parameters
+    const {
+      topic, // Required: The subject matter for the manual
+      prompt = "", // Optional: Additional prompt or requirements
+    } = requestData;
+
+    try {
+      // Notify chat system that workflow is starting
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Starting manual workflow for topic: "${topic}"`,
+        metadata: { workflowId, status: "starting" },
+      });
+
+      // Use DeepSeek API directly for manual generation
+      const manual = await this.generateManualWithDeepSeek(topic, prompt);
+
+      // Notify chat system of successful completion
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Manual workflow completed successfully! Generated comprehensive manual for "${topic}".`,
+        metadata: { workflowId, status: "completed" },
+      });
+
+      // Return structured response with workflow details
+      return {
+        workflow_id: workflowId,
+        status: "completed",
+        result: {
+          data: manual,
+        },
+        timestamp: new Date().toISOString(), // ISO timestamp for tracking
+      };
+    } catch (error) {
+      // Log error for debugging purposes
+      console.error("Manual workflow orchestration failed:", error);
+
+      // Notify chat system of workflow failure
+      this.addChatMessage({
+        type: "orchestrator",
+        content: `Manual workflow failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+        metadata: { workflowId, status: "failed" },
+      });
+
+      // Re-throw error to be handled by calling code
+      throw error;
+    }
+  }
+
+  /**
+   * Call the actual manual-creator-agent using A2A protocol
+   */
+  private async callManualCreatorAgent(
+    topic: string,
+    prompt: string
+  ): Promise<any> {
+    try {
+      console.log(`📚 Calling manual-creator-agent for topic: ${topic}`);
+
+      // Call the manual-creator-agent directly
+      const response = await fetch(
+        "http://localhost:4002/api/actions/generate-manual",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            topic: topic,
+            prompt: prompt,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Manual creator agent responded with status: ${response.status}`
+        );
+      }
+
+      const result = await response.json();
+      console.log("Manual creator agent response:", result);
+
+      // Extract the manual data from the response
+      if (result.data && result.data.content) {
+        // The response contains markdown content, parse it
+        const markdownContent = result.data.content;
+
+        // Extract title from markdown
+        const titleMatch = markdownContent.match(/^# (.+)$/m);
+        const title = titleMatch ? titleMatch[1] : `Manual: ${topic}`;
+
+        // Extract introduction
+        const introMatch = markdownContent.match(
+          /## Introduction\n([\s\S]*?)(?=\n## |\n### |$)/
+        );
+        const introduction = introMatch
+          ? introMatch[1].trim()
+          : `This manual provides comprehensive information about ${topic}`;
+
+        // Extract sections
+        const sections = [];
+        const sectionRegex =
+          /### Section \d+: ([^\n]+)\n([\s\S]*?)(?=\n### Section |\n## |$)/g;
+        let sectionMatch;
+
+        while ((sectionMatch = sectionRegex.exec(markdownContent)) !== null) {
+          const sectionTitle = sectionMatch[1].trim();
+          const sectionContent = sectionMatch[2].trim();
+
+          // Extract subsections if any
+          const subsections = [];
+          const subsectionRegex = /\*\*([^*]+):\*\*([^*]+)/g;
+          let subsectionMatch;
+
+          while (
+            (subsectionMatch = subsectionRegex.exec(sectionContent)) !== null
+          ) {
+            subsections.push({
+              title: subsectionMatch[1].trim(),
+              content: subsectionMatch[2].trim(),
+            });
+          }
+
+          sections.push({
+            title: sectionTitle,
+            content: sectionContent,
+            subsections: subsections,
+          });
+        }
+
+        // Extract conclusion
+        const conclusionMatch = markdownContent.match(
+          /## Collaborative Review\n([\s\S]*?)(?=\n---|\*|$)/
+        );
+        const conclusion = conclusionMatch
+          ? conclusionMatch[1].trim()
+          : `This manual has provided comprehensive coverage of ${topic}.`;
+
+        // Extract glossary and references
+        const glossaryMatch = markdownContent.match(
+          /\*\*Glossary:\*\*\n([\s\S]*?)(?=\n\*\*References:\*\*|$)/
+        );
+        const referencesMatch = markdownContent.match(
+          /\*\*References:\*\*\n([\s\S]*?)(?=\n---|\*|$)/
+        );
+
+        return {
+          title: title,
+          introduction: {
+            purpose: introduction,
+            audience: "General users",
+            prerequisites: "Basic understanding of the topic",
+          },
+          sections:
+            sections.length > 0
+              ? sections
+              : [
+                  {
+                    title: "Overview",
+                    content: `This section provides an overview of ${topic}.`,
+                    subsections: [],
+                  },
+                  {
+                    title: "Getting Started",
+                    content: `This section covers the basics of ${topic}.`,
+                    subsections: [],
+                  },
+                  {
+                    title: "Advanced Topics",
+                    content: `This section covers advanced concepts related to ${topic}.`,
+                    subsections: [],
+                  },
+                ],
+          conclusion: conclusion,
+          appendix: {
+            glossary: glossaryMatch
+              ? glossaryMatch[1].trim()
+              : "Key terms and definitions",
+            resources: referencesMatch
+              ? referencesMatch[1].trim()
+              : "Additional resources and references",
+          },
+        };
+      } else {
+        throw new Error("Invalid response format from manual creator agent");
+      }
+    } catch (error) {
+      console.error("Error calling manual creator agent:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate manual using DeepSeek API
+   */
+  private async generateManualWithDeepSeek(
+    topic: string,
+    prompt: string
+  ): Promise<any> {
+    try {
+      // Import OpenAI dynamically
+      const OpenAI = (await import("openai")).default;
+
+      const client = new OpenAI({
+        apiKey: "sk-6796ea0f38c7499dbf47c7ff2a026966",
+        baseURL: "https://api.deepseek.com",
+      });
+
+      const completion = await client.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert technical writer specializing in creating comprehensive manuals and documentation. Create a detailed manual based on the user's request.
+
+Generate a comprehensive manual in JSON format:
+
+{
+  "title": "Manual Title",
+  "introduction": {
+    "purpose": "Purpose of the manual",
+    "audience": "Target audience",
+    "prerequisites": "Required knowledge or skills"
+  },
+  "sections": [
+    {
+      "title": "Section Title",
+      "content": "Detailed content for this section",
+      "subsections": [
+        {
+          "title": "Subsection Title",
+          "content": "Subsection content"
+        }
+      ]
+    }
+  ],
+  "conclusion": "Summary and next steps",
+  "appendix": {
+    "glossary": "Key terms and definitions",
+    "resources": "Additional resources and references"
+  }
+}
+
+REQUIREMENTS:
+- Create a comprehensive, well-structured manual
+- Include practical examples and step-by-step instructions
+- Make content educational and easy to follow
+- Organize information logically with clear sections
+- Include relevant details and context
+- Ensure content is accurate and professional`,
+          },
+          {
+            role: "user",
+            content: `Create a comprehensive manual about: ${topic}${
+              prompt ? `\n\nAdditional requirements: ${prompt}` : ""
+            }`,
+          },
+        ],
+        max_tokens: 4000,
+        temperature: 0.7,
+        stream: false,
+      });
+
+      const response = completion.choices[0]?.message?.content || "{}";
+
+      try {
+        // First try to parse as JSON directly
+        const manualData = JSON.parse(response);
+        return manualData;
+      } catch (parseError) {
+        console.log(
+          "JSON parsing failed, trying to extract JSON from markdown:",
+          parseError
+        );
+
+        // Try to extract JSON from markdown code blocks
+        const jsonMatch = response.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          try {
+            const extractedJson = jsonMatch[1].trim();
+            const manualData = JSON.parse(extractedJson);
+            return manualData;
+          } catch (extractError) {
+            console.log("Failed to parse extracted JSON:", extractError);
+          }
+        }
+
+        // Try to extract JSON without code block markers
+        const jsonStart = response.indexOf("{");
+        const jsonEnd = response.lastIndexOf("}");
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+          try {
+            const jsonString = response.substring(jsonStart, jsonEnd + 1);
+            const manualData = JSON.parse(jsonString);
+            return manualData;
+          } catch (extractError) {
+            console.log("Failed to parse extracted JSON string:", extractError);
+          }
+        }
+
+        console.log(
+          "All JSON extraction attempts failed, processing as markdown content"
+        );
+
+        // If JSON parsing fails, process the markdown content
+        const markdownContent = response;
+
+        // Extract title from markdown
+        const titleMatch = markdownContent.match(/^# (.+)$/m);
+        const title = titleMatch ? titleMatch[1] : `Manual: ${topic}`;
+
+        // Extract introduction
+        const introMatch = markdownContent.match(
+          /## Introduction\n([\s\S]*?)(?=\n## |\n### |$)/
+        );
+        const introduction = introMatch
+          ? introMatch[1].trim()
+          : `This manual provides comprehensive information about ${topic}`;
+
+        // Extract sections
+        const sections = [];
+        const sectionRegex =
+          /### Section \d+: ([^\n]+)\n([\s\S]*?)(?=\n### Section |\n## |$)/g;
+        let sectionMatch;
+
+        while ((sectionMatch = sectionRegex.exec(markdownContent)) !== null) {
+          const sectionTitle = sectionMatch[1].trim();
+          const sectionContent = sectionMatch[2].trim();
+
+          // Extract subsections if any
+          const subsections = [];
+          const subsectionRegex = /\*\*([^*]+):\*\*([^*]+)/g;
+          let subsectionMatch;
+
+          while (
+            (subsectionMatch = subsectionRegex.exec(sectionContent)) !== null
+          ) {
+            subsections.push({
+              title: subsectionMatch[1].trim(),
+              content: subsectionMatch[2].trim(),
+            });
+          }
+
+          sections.push({
+            title: sectionTitle,
+            content: sectionContent,
+            subsections: subsections,
+          });
+        }
+
+        // Extract conclusion
+        const conclusionMatch = markdownContent.match(
+          /## Collaborative Review\n([\s\S]*?)(?=\n---|\*|$)/
+        );
+        const conclusion = conclusionMatch
+          ? conclusionMatch[1].trim()
+          : `This manual has provided comprehensive coverage of ${topic}.`;
+
+        // Extract glossary and references
+        const glossaryMatch = markdownContent.match(
+          /\*\*Glossary:\*\*\n([\s\S]*?)(?=\n\*\*References:\*\*|$)/
+        );
+        const referencesMatch = markdownContent.match(
+          /\*\*References:\*\*\n([\s\S]*?)(?=\n---|\*|$)/
+        );
+
+        return {
+          title: title,
+          introduction: {
+            purpose: introduction,
+            audience: "General users",
+            prerequisites: "Basic understanding of the topic",
+          },
+          sections:
+            sections.length > 0
+              ? sections
+              : [
+                  {
+                    title: "Overview",
+                    content: `This section provides an overview of ${topic}.`,
+                    subsections: [],
+                  },
+                  {
+                    title: "Getting Started",
+                    content: `This section covers the basics of ${topic}.`,
+                    subsections: [],
+                  },
+                  {
+                    title: "Advanced Topics",
+                    content: `This section covers advanced concepts related to ${topic}.`,
+                    subsections: [],
+                  },
+                ],
+          conclusion: conclusion,
+          appendix: {
+            glossary: glossaryMatch
+              ? glossaryMatch[1].trim()
+              : "Key terms and definitions",
+            resources: referencesMatch
+              ? referencesMatch[1].trim()
+              : "Additional resources and references",
+          },
+        };
+      }
+    } catch (error) {
+      console.error("DeepSeek manual generation error:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Execute workflow with chat integration
    */
   private async executeWorkflowWithChat(workflowId: string): Promise<any> {
@@ -1540,142 +2162,88 @@ How can I help you today?`;
     try {
       console.log(`🔄 Executing step ${step.id} on agent ${step.agentId}`);
 
-      // Import A2A client dynamically to avoid SSR issues
-      const { A2AClient } = await import("@a2a-js/sdk/client");
-
-      // Create A2A client using the agent URL
-      const a2aClient = await A2AClient.fromCardUrl(step.agentId);
-
-      // Create message with task input
+      // Use direct HTTP call instead of A2A SDK to avoid agent card fetching issues
       const message = {
-        kind: "message" as const,
         messageId: uuidv4(),
-        role: "user" as const,
         parts: [
           {
-            kind: "text" as const,
-            text: JSON.stringify({
-              skillId: step.skillId,
-              input: step.input,
-            }),
+            kind: "text",
+            text:
+              step.input.topic ||
+              JSON.stringify({
+                skillId: step.skillId,
+                input: step.input,
+              }),
           },
         ],
       };
 
-      // Send message using A2A SDK
-      const response = await a2aClient.sendMessage({
-        message,
-        configuration: {
-          blocking: true,
+      // Send direct HTTP request to backend agent
+      const response = await fetch(`${step.agentId}/a2a/tasks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          message: message,
+          configuration: {
+            blocking: true,
+          },
+        }),
       });
 
-      console.log(`A2A response for step ${step.id}:`, response);
-
-      // Handle the response with enhanced error handling
-      if (response && typeof response === "object" && "task" in response) {
-        const task = response.task as any;
-
-        // Poll for task completion with timeout
-        let completedTask = task;
-        let attempts = 0;
-        const maxAttempts = 30; // 30 seconds timeout
-
-        while (
-          completedTask.status &&
-          (completedTask.status.state === "running" ||
-            completedTask.status.state === "submitted") &&
-          attempts < maxAttempts
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          attempts++;
-
-          try {
-            const taskResponse = await a2aClient.getTask({ id: task.id });
-            console.log(
-              `A2A task polling attempt ${attempts} for step ${step.id}:`,
-              taskResponse
-            );
-
-            if ("task" in taskResponse && taskResponse.task) {
-              completedTask = taskResponse.task as any;
-              console.log(
-                `A2A task status for step ${step.id}: ${completedTask.status?.state}`
-              );
-            }
-          } catch (pollError) {
-            console.error(
-              `A2A task polling error for step ${step.id} (attempt ${attempts}):`,
-              pollError
-            );
-          }
-        }
-
-        if (attempts >= maxAttempts) {
-          throw new Error(
-            `A2A task polling timeout for step ${step.id} - task did not complete within 30 seconds`
-          );
-        }
-
-        console.log(
-          `A2A task completed for step ${step.id}:`,
-          completedTask.status?.state
-        );
-
-        if (
-          completedTask.status?.state === "completed" &&
-          completedTask.artifacts
-        ) {
-          // Extract data from A2A artifacts
-          const artifact = completedTask.artifacts[0];
-          if (artifact && artifact.parts) {
-            const result = JSON.parse(artifact.parts[0].text);
-            console.log(`Step ${step.id} completed successfully:`, result);
-            return result;
-          }
-        } else if (completedTask.status?.state === "failed") {
-          console.error(`A2A task failed for step ${step.id}:`, completedTask);
-          throw new Error(`A2A task execution failed for step ${step.id}`);
-        } else {
-          console.error(
-            `A2A task not completed for step ${step.id}:`,
-            completedTask
-          );
-          throw new Error(
-            `A2A task status: ${completedTask.status?.state}, artifacts: ${
-              completedTask.artifacts ? "present" : "missing"
-            }`
-          );
-        }
-      } else if (
-        response &&
-        typeof response === "object" &&
-        "message" in response
-      ) {
-        // Handle direct message response
-        const message = response.message as any;
-        if (message.parts && message.parts.length > 0) {
-          try {
-            const result = JSON.parse(message.parts[0].text);
-            console.log(
-              `Step ${step.id} completed with direct message:`,
-              result
-            );
-            return result;
-          } catch (e) {
-            // If not JSON, return the text as result
-            console.log(
-              `Step ${step.id} completed with text response:`,
-              message.parts[0].text
-            );
-            return { result: message.parts[0].text };
-          }
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      throw new Error(
-        `No valid response received from A2A agent for step ${step.id}`
-      );
+      const result = await response.json();
+
+      console.log(`A2A response for step ${step.id}:`, result);
+
+      // Handle the response - the backend agent returns the quiz data directly
+      if (result && typeof result === "object") {
+        // Extract quiz data from the response
+        let quizData = null;
+
+        if (result.task && result.task.artifacts) {
+          // If response has task with artifacts, extract quiz from artifacts
+          const quizArtifact = result.task.artifacts.find(
+            (artifact: any) =>
+              artifact.name === "quiz.json" || artifact.name === "quiz"
+          );
+          if (quizArtifact && quizArtifact.parts) {
+            const quizText = quizArtifact.parts.find(
+              (part: any) => part.kind === "text"
+            )?.text;
+            if (quizText) {
+              quizData = JSON.parse(quizText);
+            }
+          }
+        } else if (result.data) {
+          // If response has data directly
+          quizData = result.data;
+        } else if (result.quiz_questions) {
+          // If response has quiz_questions directly
+          quizData = result;
+        }
+
+        if (quizData && quizData.quiz_questions) {
+          console.log(
+            `✅ Step ${step.id} completed successfully with ${quizData.quiz_questions.length} questions`
+          );
+          return quizData.quiz_questions;
+        } else {
+          console.log(
+            `⚠️ Step ${step.id} completed but no quiz data found in response`
+          );
+          return [];
+        }
+      } else {
+        console.log(
+          `⚠️ Step ${step.id} completed with unexpected response format`
+        );
+        return [];
+      }
     } catch (error) {
       console.error(`A2A task execution failed for step ${step.id}:`, error);
       throw new Error(

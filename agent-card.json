@@ -1,9 +1,12 @@
 {
+  "id": "urn:uuid:frontend-agent-1234",
+  "type": "AgentCard",
   "name": "Quiz Frontend Agent",
   "description": "Frontend agent with A2A orchestrator for quiz management",
   "protocolVersion": "0.3.0",
   "url": "http://localhost:3000",
   "version": "1.0.0",
+  "inbox": "http://localhost:3000/api/agent/inbox",
   "capabilities": {
     "streaming": true,
     "pushNotifications": true
@@ -13,6 +16,12 @@
       "id": "orchestrate_quiz_generation",
       "name": "Orchestrate Quiz Generation",
       "description": "Coordinates quiz generation with backend agents",
+      "action": "/api/orchestrator"
+    },
+    {
+      "id": "orchestrate_manual_generation",
+      "name": "Orchestrate Manual Generation",
+      "description": "Coordinates manual generation with manual-creator-agent",
       "action": "/api/orchestrator"
     },
     {

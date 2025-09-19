@@ -28,6 +28,10 @@ export async function POST(request: NextRequest) {
         result = await getOrchestratorService().orchestrateQuizWorkflow(data);
         break;
 
+      case "orchestrate-manual-workflow":
+        result = await getOrchestratorService().orchestrateManualWorkflow(data);
+        break;
+
       case "monitor_system_health":
         result = await getOrchestratorService().monitorSystemHealth(data);
         break;

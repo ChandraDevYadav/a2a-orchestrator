@@ -2,60 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-  }
+:root {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-optical-sizing: auto;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background: #000 url("/StudioPic.jpg") center / cover no-repeat fixed;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  position: relative;
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
-  }
+  /* Add our theme colors */
+  --primary-blue: #7612fa;
+  --primary-green: #fa12e3;
+  --primary-gradient: linear-gradient(
+    135deg,
+    var(--primary-blue),
+    var(--primary-green)
+  );
+  --secondary-gradient: linear-gradient(
+    135deg,
+    rgba(39, 170, 225, 0.8),
+    rgba(98, 177, 97, 0.8)
+  );
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+:root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  z-index: -1;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  text-align: left;
 }
 
 @layer utilities {
@@ -66,5 +57,63 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none; /* Safari and Chrome */
+  }
+
+  /* Scrollbar that appears only on hover */
+  .scrollbar-hover {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: transparent transparent; /* Firefox */
+  }
+
+  .scrollbar-hover::-webkit-scrollbar {
+    width: 6px; /* Safari and Chrome */
+    height: 6px;
+  }
+
+  .scrollbar-hover::-webkit-scrollbar-track {
+    background: transparent; /* Safari and Chrome */
+  }
+
+  .scrollbar-hover::-webkit-scrollbar-thumb {
+    background: transparent; /* Safari and Chrome */
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-hover:hover::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5); /* Gray with opacity */
+  }
+
+  .scrollbar-hover:hover {
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent; /* Firefox */
+  }
+
+  /* Scrollbar that appears only when scrolling */
+  .scrollbar-scroll {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: transparent transparent; /* Firefox */
+  }
+
+  .scrollbar-scroll::-webkit-scrollbar {
+    width: 6px; /* Safari and Chrome */
+    height: 6px;
+  }
+
+  .scrollbar-scroll::-webkit-scrollbar-track {
+    background: transparent; /* Safari and Chrome */
+  }
+
+  .scrollbar-scroll::-webkit-scrollbar-thumb {
+    background: transparent; /* Safari and Chrome */
+    border-radius: 3px;
+    transition: background-color 0.3s ease;
+  }
+
+  .scrollbar-scroll.scrolling::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.6); /* Gray with opacity when scrolling */
+  }
+
+  .scrollbar-scroll.scrolling {
+    scrollbar-color: rgba(156, 163, 175, 0.6) transparent; /* Firefox */
   }
 }

@@ -1,1 +1,5 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/orchestrator/route": "app/api/orchestrator/route.js",
+  "/.well-known/agent-card.json/route": "app/.well-known/agent-card.json/route.js"
+}

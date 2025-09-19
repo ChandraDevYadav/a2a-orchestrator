@@ -13,7 +13,7 @@ export function QuizDisplay({ quizData }: QuizDisplayProps) {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-center">
+          <CardTitle className="text-start text-gray-900">
             Generated Quiz Questions ({quizData.quiz_questions.length}{" "}
             questions)
           </CardTitle>
@@ -24,7 +24,9 @@ export function QuizDisplay({ quizData }: QuizDisplayProps) {
         {quizData.quiz_questions.map((question, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardHeader>
-              <CardTitle className="text-lg">Question {index + 1}</CardTitle>
+              <CardTitle className="text-lg text-gray-900">
+                Question {index + 1}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-base font-medium text-gray-900 dark:text-gray-100">

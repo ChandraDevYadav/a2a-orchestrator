@@ -280,8 +280,8 @@ export function QuizChat({
             <div
               className={`max-w-[80%] rounded-lg p-3 ${
                 message.type === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-900"
+                  ? "bg-blue-600 text-white rounded-[16px]"
+                  : "bg-gray-100 text-gray-900 rounded-[16px]"
               }`}
             >
               {message.isGenerating ? (
@@ -311,7 +311,7 @@ export function QuizChat({
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="min-h-[80px] resize-none scrollbar-hide"
+            className="min-h-[80px] resize-none scrollbar-hide border-gray-200 text-gray-900 rounded-md"
             disabled={isGenerating}
           />
           <Button
@@ -323,7 +323,7 @@ export function QuizChat({
             {isGenerating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              <Send className="h-4 w-4" />
+              <Send className="h-5 w-5 text-blue-600" />
             )}
           </Button>
         </div>

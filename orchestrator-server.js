@@ -21,6 +21,7 @@ const orchestratorService = {
     const knownUrls = [
       "http://localhost:3000",
       "http://localhost:4001",
+      "http://localhost:4002",
       "http://localhost:5000",
     ];
 
@@ -300,11 +301,183 @@ const orchestratorService = {
     };
   },
 
+  orchestrateManualWorkflow: async (data) => {
+    const topic = data.query || data.input || data.topic || "General Topic";
+    const prompt = data.prompt || data.message || "";
+
+    try {
+      console.log(`📚 Orchestrating manual workflow for topic: ${topic}`);
+
+      // Use A2A protocol to communicate with manual-creator agent
+      const manualCreatorUrl = "http://localhost:4002";
+      const a2aClient = await A2AClient.fromCardUrl(manualCreatorUrl);
+
+      // Create A2A message for manual generation
+      const message = {
+        kind: "message",
+        messageId: `manual-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 9)}`,
+        role: "user",
+        parts: [
+          {
+            kind: "text",
+            text: JSON.stringify({
+              skillId: "generate_manual",
+              input: {
+                topic: topic,
+                prompt: prompt,
+              },
+            }),
+          },
+        ],
+      };
+
+      // Send message using A2A SDK
+      const response = await a2aClient.sendMessage({
+        message,
+        configuration: {
+          blocking: true,
+        },
+      });
+
+      console.log("A2A manual response received:", response);
+
+      // Handle the response
+      if (response && typeof response === "object" && "task" in response) {
+        const task = response.task;
+
+        // Poll for task completion
+        let completedTask = task;
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        while (
+          completedTask.status &&
+          (completedTask.status.state === "running" ||
+            completedTask.status.state === "submitted") &&
+          attempts < maxAttempts
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          attempts++;
+
+          try {
+            const taskResponse = await a2aClient.getTask({ id: task.id });
+            if ("task" in taskResponse && taskResponse.task) {
+              completedTask = taskResponse.task;
+            }
+          } catch (pollError) {
+            console.error(
+              `Manual task polling error (attempt ${attempts}):`,
+              pollError
+            );
+          }
+        }
+
+        if (
+          completedTask.status?.state === "completed" &&
+          completedTask.artifacts
+        ) {
+          // Extract manual data from A2A artifacts
+          const manualArtifact = completedTask.artifacts.find(
+            (artifact) => artifact.name === "manual.json"
+          );
+
+          if (manualArtifact && manualArtifact.parts) {
+            const manualData = JSON.parse(manualArtifact.parts[0].text);
+
+            return {
+              workflowId: `manual-workflow-${Date.now()}`,
+              status: "completed",
+              result: {
+                message: `Manual workflow orchestrated successfully for topic: ${topic}`,
+                data: manualData,
+              },
+              timestamp: new Date().toISOString(),
+            };
+          }
+        }
+      }
+
+      // Fallback to mock data if A2A doesn't return expected format
+      console.log("A2A manual response format unexpected, using fallback");
+      return this.generateMockManualWorkflow(topic, prompt);
+    } catch (error) {
+      console.error("A2A manual workflow failed:", error);
+
+      // Fallback to mock data
+      return this.generateMockManualWorkflow(topic, prompt);
+    }
+  },
+
+  generateMockManualWorkflow: (topic, prompt) => {
+    const mockManual = {
+      title: `Complete Manual: ${topic}`,
+      introduction: {
+        purpose: `This manual provides comprehensive coverage of ${topic}`,
+        objectives: [
+          `Understand the fundamental concepts of ${topic}`,
+          `Apply ${topic} principles in practical scenarios`,
+          `Develop expertise in ${topic} methodologies`,
+        ],
+      },
+      sections: [
+        {
+          title: `Introduction to ${topic}`,
+          content: `This section covers the basic concepts and principles of ${topic}. ${prompt}`,
+          keyPoints: [
+            `Core concepts of ${topic}`,
+            `Historical development`,
+            `Modern applications`,
+          ],
+        },
+        {
+          title: `Advanced Concepts`,
+          content: `Deeper exploration of ${topic} including advanced theories and methodologies.`,
+          keyPoints: [
+            `Advanced theories`,
+            `Complex methodologies`,
+            `Real-world applications`,
+          ],
+        },
+        {
+          title: `Practical Applications`,
+          content: `How to apply ${topic} knowledge in real-world scenarios.`,
+          keyPoints: [`Case studies`, `Best practices`, `Common pitfalls`],
+        },
+      ],
+      conclusion: {
+        summary: `This manual has covered the essential aspects of ${topic}`,
+        nextSteps: [
+          "Practice with real-world examples",
+          "Explore advanced topics",
+          "Apply knowledge in projects",
+        ],
+      },
+      glossary: {
+        [`${topic}`]: `The main subject matter covered in this manual`,
+        Concept: "A fundamental idea or principle",
+        Methodology: "A systematic approach to solving problems",
+      },
+    };
+
+    return {
+      workflowId: `manual-workflow-${Date.now()}`,
+      status: "completed",
+      result: {
+        message: `Manual workflow orchestrated successfully for topic: ${topic}`,
+        data: mockManual,
+      },
+      timestamp: new Date().toISOString(),
+    };
+  },
+
   monitorSystemHealth: async (data) => {
     const healthChecks = [];
     const knownUrls = [
       { id: "frontend", url: "http://localhost:3000" },
       { id: "backend", url: "http://localhost:4001" },
+      { id: "manual-creator", url: "http://localhost:4002" },
       { id: "orchestrator", url: "http://localhost:5000" },
     ];
 
@@ -357,6 +530,7 @@ const orchestratorService = {
     return [
       { id: "frontend", url: "http://localhost:3000", status: "online" },
       { id: "backend", url: "http://localhost:4001", status: "online" },
+      { id: "manual-creator", url: "http://localhost:4002", status: "online" },
       { id: "orchestrator", url: "http://localhost:5000", status: "online" },
     ];
   },
@@ -373,6 +547,12 @@ const orchestratorService = {
         query.toLowerCase().includes("question")
       ) {
         targetUrl = "http://localhost:4001"; // Backend for quiz generation
+      } else if (
+        query.toLowerCase().includes("manual") ||
+        query.toLowerCase().includes("documentation") ||
+        query.toLowerCase().includes("guide")
+      ) {
+        targetUrl = "http://localhost:4002"; // Manual-creator for manual generation
       } else if (
         query.toLowerCase().includes("workflow") ||
         query.toLowerCase().includes("orchestrate")
@@ -476,6 +656,18 @@ app.post("/api/orchestrate-quiz-workflow", async (req, res) => {
   }
 });
 
+// Manual workflow orchestration
+app.post("/api/orchestrate-manual-workflow", async (req, res) => {
+  try {
+    const result = await orchestratorService.orchestrateManualWorkflow(
+      req.body
+    );
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // System health monitoring
 app.post("/api/monitor-system-health", async (req, res) => {
   try {
@@ -539,6 +731,9 @@ app.listen(PORT, () => {
   );
   console.log(
     `🎯 Quiz workflow: http://localhost:${PORT}/api/orchestrate-quiz-workflow`
+  );
+  console.log(
+    `📚 Manual workflow: http://localhost:${PORT}/api/orchestrate-manual-workflow`
   );
 });
 
