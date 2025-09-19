@@ -57,7 +57,7 @@ export function useOrchestrator() {
   const discoverAgents = async () => {
     setIsLoading(true);
     try {
-      const result = await orchestratorClient.discoverAgents();
+      const result = (await orchestratorClient.discoverAgents()) as { agents: any[] };
       setStatus((prev) => ({
         ...prev,
         agents: result.agents || [],
