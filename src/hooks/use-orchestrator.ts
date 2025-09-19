@@ -27,9 +27,11 @@ export function useOrchestrator() {
   const checkHealth = async () => {
     setIsLoading(true);
     try {
-      const health = await orchestratorClient.checkHealth() as { status: string };
-      const agents = await orchestratorClient.getAllAgents();
-      const workflows = await orchestratorClient.getAllWorkflows();
+      const health = (await orchestratorClient.checkHealth()) as {
+        status: string;
+      };
+      const agents = (await orchestratorClient.getAllAgents()) as any[];
+      const workflows = (await orchestratorClient.getAllWorkflows()) as any[];
 
       setStatus({
         isConnected: true,
