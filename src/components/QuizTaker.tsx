@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -36,7 +36,7 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [handleCompleteQuiz]);
 
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswer(answer);
@@ -77,7 +77,7 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
     }
   };
 
-  const handleCompleteQuiz = () => {
+  const handleCompleteQuiz = useCallback(() => {
     if (isCompleted) return;
 
     // Complete remaining questions as unanswered
@@ -102,7 +102,7 @@ export function QuizTaker({ session, onComplete, onReset }: QuizTakerProps) {
     setIsCompleted(true);
     setShowResults(true);
     onComplete(completedSession);
-  };
+  }, [isCompleted, currentQuestionIndex, session, onComplete]);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);

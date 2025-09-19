@@ -40,7 +40,7 @@ export default function Home() {
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Your unified AI assistant for quiz generation, manual creation, and
-            general chat. Simply type what you need and I'll handle the rest!
+            general chat. Simply type what you need and I&apos;ll handle the rest!
           </p>
         </div>
 
