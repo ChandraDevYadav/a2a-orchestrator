@@ -19,6 +19,8 @@ import {
   Download,
   ArrowLeft,
   Edit3,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { QuizData } from "@/types/quiz";
 import { useScrollbar } from "@/hooks/use-scrollbar";
@@ -66,6 +68,8 @@ export function UnifiedChat({
   const [selectedItem, setSelectedItem] = useState<GeneratedItem | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [isGeneratedResultsCollapsed, setIsGeneratedResultsCollapsed] =
+    useState(false);
 
   // Scrollbar hooks for different panels
   const leftPanelScrollbar = useScrollbar();
@@ -431,6 +435,10 @@ export function UnifiedChat({
     setEditingTitle("");
   };
 
+  const toggleGeneratedResultsCollapse = () => {
+    setIsGeneratedResultsCollapsed(!isGeneratedResultsCollapsed);
+  };
+
   const formatTimestamp = (timestamp: Date) => {
     return timestamp.toLocaleTimeString("en-US", {
       hour: "2-digit",
@@ -577,7 +585,7 @@ export function UnifiedChat({
                     key={item.id}
                     className={`p-2 rounded text-xs cursor-pointer transition-colors group ${
                       selectedItem?.id === item.id
-                        ? "bg-blue-100 border border-blue-300"
+                        ? "bg-blue-200 border border-blue-300"
                         : "bg-white border border-gray-200 hover:bg-gray-50"
                     }`}
                     onClick={() => setSelectedItem(item)}
@@ -692,67 +700,72 @@ export function UnifiedChat({
       </div>
 
       {/* Center Panel - Generated Results */}
-      <div className="w-2/4 border-r bg-gray-50/90 flex flex-col rounded-[16px]">
-        <div className="p-4 border-b bg-gray-50 rounded-t-[16px]">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm text-gray-900">
-              Generated Results
-            </h3>
-            {selectedItem && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const content =
-                      selectedItem.type === "quiz"
-                        ? formatQuizContent(selectedItem.data)
-                        : formatManualContent(selectedItem.data);
-                    const filename =
-                      selectedItem.type === "quiz" ? "quiz.txt" : "manual.txt";
-                    handleCopyContent(content);
-                  }}
-                  className="h-7 px-2 text-xs text-gray-900 hover:bg-blue-600 hover:text-white "
-                >
-                  <Copy className="h-3 w-3 mr-1" />
-                  Copy
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const content =
-                      selectedItem.type === "quiz"
-                        ? formatQuizContent(selectedItem.data)
-                        : formatManualContent(selectedItem.data);
-                    const filename =
-                      selectedItem.type === "quiz" ? "quiz.txt" : "manual.txt";
-                    handleDownloadContent(content, filename);
-                  }}
-                  className="h-7 px-2 text-xs text-gray-900 hover:bg-red-600 hover:text-white"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  Download
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {selectedItem ? (
-          <div
-            className={`flex-1 overflow-y-auto ${centerPanelScrollbar.scrollbarClasses}`}
-            onScroll={centerPanelScrollbar.handleScroll}
-          >
-            <div className="p-4">
-              {/* Content Header */}
-              <div className="mb-4">
+      {!isGeneratedResultsCollapsed && (
+        <div className="w-2/4 border-r bg-gray-50/90 flex flex-col rounded-[16px] transition-all duration-300 ease-in-out">
+          <div className="p-4 border-b bg-gray-50 rounded-t-[16px]">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm text-gray-900">
+                Generated Results
+              </h3>
+              {selectedItem && (
                 <div className="flex items-center gap-2">
-                  {/* {getItemIcon(selectedItem.type)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const content =
+                        selectedItem.type === "quiz"
+                          ? formatQuizContent(selectedItem.data)
+                          : formatManualContent(selectedItem.data);
+                      const filename =
+                        selectedItem.type === "quiz"
+                          ? "quiz.txt"
+                          : "manual.txt";
+                      handleCopyContent(content);
+                    }}
+                    className="h-7 px-2 text-xs text-gray-900 hover:bg-blue-600 hover:text-white "
+                  >
+                    <Copy className="h-3 w-3 mr-1" />
+                    Copy
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const content =
+                        selectedItem.type === "quiz"
+                          ? formatQuizContent(selectedItem.data)
+                          : formatManualContent(selectedItem.data);
+                      const filename =
+                        selectedItem.type === "quiz"
+                          ? "quiz.txt"
+                          : "manual.txt";
+                      handleDownloadContent(content, filename);
+                    }}
+                    className="h-7 px-2 text-xs text-gray-900 hover:bg-red-600 hover:text-white"
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedItem ? (
+            <div
+              className={`flex-1 overflow-y-auto ${centerPanelScrollbar.scrollbarClasses}`}
+              onScroll={centerPanelScrollbar.handleScroll}
+            >
+              <div className="p-4">
+                {/* Content Header */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-2">
+                    {/* {getItemIcon(selectedItem.type)}
                   <h2 className="text-lg font-semibold text-gray-900 text-uppercase">
                     {selectedItem.type}
                   </h2> */}
-                  {/* <Badge
+                    {/* <Badge
                     variant="secondary"
                     className={`text-lg text-capitalize ${
                       selectedItem.type === "quiz"
@@ -762,300 +775,330 @@ export function UnifiedChat({
                   >
                     {selectedItem.type}
                   </Badge> */}
+                  </div>
+                  <p className="text-[16px] text-gray-800 font-medium">
+                    {selectedItem.preview}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Generated: {formatTimestamp(selectedItem.timestamp)}
+                  </p>
                 </div>
-                <p className="text-[16px] text-gray-800 font-medium">
-                  {selectedItem.preview}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Generated: {formatTimestamp(selectedItem.timestamp)}
-                </p>
-              </div>
 
-              {/* Content Display */}
-              <div className="bg-white/90 text-gray-900 rounded-[12px] p-4">
-                {selectedItem.type === "quiz" ? (
-                  <div className="space-y-4">
-                    {/* <h3 className="font-semibold text-lg">
+                {/* Content Display */}
+                <div className="bg-white/90 text-gray-900 rounded-[12px] p-4">
+                  {selectedItem.type === "quiz" ? (
+                    <div className="space-y-4">
+                      {/* <h3 className="font-semibold text-lg">
                       {selectedItem.data.title || "Generated Quiz"}
                     </h3> */}
 
-                    {selectedItem.data.introduction && (
-                      <div>
-                        <h4 className="font-medium mb-2">Introduction:</h4>
-                        <p className="text-sm text-gray-700">
-                          {selectedItem.data.introduction}
-                        </p>
-                      </div>
-                    )}
-
-                    <div>
-                      <h4 className="font-medium mb-3">
-                        Questions (
-                        {selectedItem.data.quiz_questions?.length || 0} total):
-                      </h4>
-                      <div className="space-y-4">
-                        {selectedItem.data.quiz_questions?.map(
-                          (question: any, index: number) => (
-                            <div
-                              key={index}
-                              className="bg-white p-3 rounded border"
-                            >
-                              <p className="font-medium mb-2">
-                                Question {index + 1}: {question.question}
-                              </p>
-                              <div className="space-y-1 mb-2">
-                                {question.answers?.map(
-                                  (answer: any, i: number) => {
-                                    const letter = String.fromCharCode(65 + i); // A, B, C, D
-                                    const isCorrect =
-                                      letter === question.correct_answer;
-                                    return (
-                                      <div
-                                        key={i}
-                                        className={`p-2 rounded text-sm ${
-                                          isCorrect
-                                            ? "bg-green-100 border border-green-300"
-                                            : "bg-gray-50"
-                                        }`}
-                                      >
-                                        <span className="font-medium">
-                                          {letter}.
-                                        </span>{" "}
-                                        {answer.answer}
-                                        {isCorrect && (
-                                          <span className="ml-2 text-green-600 font-medium">
-                                            ✓ Correct
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  }
-                                )}
-                              </div>
-                              {question.difficulty && (
-                                <p className="text-xs text-gray-500">
-                                  Difficulty: {question.difficulty}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* <h3 className="font-semibold text-lg">
-                      {selectedItem.data.title || "Generated Manual"}
-                    </h3> */}
-
-                    {selectedItem.data.introduction && (
-                      <div>
-                        <h4 className="font-medium mb-2">Introduction:</h4>
-                        {selectedItem.data.introduction.purpose && (
-                          <p className="text-sm text-gray-700 mb-2">
-                            <strong>Purpose:</strong>{" "}
-                            {typeof selectedItem.data.introduction.purpose ===
-                            "string"
-                              ? selectedItem.data.introduction.purpose
-                              : JSON.stringify(
-                                  selectedItem.data.introduction.purpose
-                                )}
-                          </p>
-                        )}
-                        {selectedItem.data.introduction.audience && (
-                          <p className="text-sm text-gray-700 mb-2">
-                            <strong>Audience:</strong>{" "}
-                            {typeof selectedItem.data.introduction.audience ===
-                            "string"
-                              ? selectedItem.data.introduction.audience
-                              : JSON.stringify(
-                                  selectedItem.data.introduction.audience
-                                )}
-                          </p>
-                        )}
-                        {selectedItem.data.introduction.prerequisites && (
+                      {selectedItem.data.introduction && (
+                        <div>
+                          <h4 className="font-medium mb-2">Introduction:</h4>
                           <p className="text-sm text-gray-700">
-                            <strong>Prerequisites:</strong>{" "}
-                            {typeof selectedItem.data.introduction
-                              .prerequisites === "string"
-                              ? selectedItem.data.introduction.prerequisites
-                              : JSON.stringify(
-                                  selectedItem.data.introduction.prerequisites
-                                )}
+                            {selectedItem.data.introduction}
                           </p>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                    {selectedItem.data.sections && (
                       <div>
-                        <h4 className="font-medium mb-3">Sections:</h4>
-                        <div className="space-y-3">
-                          {selectedItem.data.sections.map(
-                            (section: any, index: number) => (
+                        <h4 className="font-medium mb-3">
+                          Questions (
+                          {selectedItem.data.quiz_questions?.length || 0}{" "}
+                          total):
+                        </h4>
+                        <div className="space-y-4">
+                          {selectedItem.data.quiz_questions?.map(
+                            (question: any, index: number) => (
                               <div
                                 key={index}
                                 className="bg-white p-3 rounded border"
                               >
-                                <h5 className="font-medium mb-2">
-                                  {index + 1}.{" "}
-                                  {section.title || `Section ${index + 1}`}
-                                </h5>
-                                {section.content && (
-                                  <p className="text-sm text-gray-700 mb-2">
-                                    {typeof section.content === "string"
-                                      ? section.content
-                                      : JSON.stringify(section.content)}
+                                <p className="font-medium mb-2">
+                                  Question {index + 1}: {question.question}
+                                </p>
+                                <div className="space-y-1 mb-2">
+                                  {question.answers?.map(
+                                    (answer: any, i: number) => {
+                                      const letter = String.fromCharCode(
+                                        65 + i
+                                      ); // A, B, C, D
+                                      const isCorrect =
+                                        letter === question.correct_answer;
+                                      return (
+                                        <div
+                                          key={i}
+                                          className={`p-2 rounded text-sm ${
+                                            isCorrect
+                                              ? "bg-green-100 border border-green-300"
+                                              : "bg-gray-50"
+                                          }`}
+                                        >
+                                          <span className="font-medium">
+                                            {letter}.
+                                          </span>{" "}
+                                          {answer.answer}
+                                          {isCorrect && (
+                                            <span className="ml-2 text-green-600 font-medium">
+                                              ✓ Correct
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                                {question.difficulty && (
+                                  <p className="text-xs text-gray-500">
+                                    Difficulty: {question.difficulty}
                                   </p>
                                 )}
-                                {section.subsections &&
-                                  section.subsections.length > 0 && (
-                                    <div className="ml-4 space-y-2">
-                                      {section.subsections.map(
-                                        (subsection: any, subIndex: number) => (
-                                          <div key={subIndex}>
-                                            <h6 className="font-medium text-sm">
-                                              {index + 1}.{subIndex + 1}.{" "}
-                                              {subsection.title ||
-                                                `Subsection ${subIndex + 1}`}
-                                            </h6>
-                                            {subsection.content && (
-                                              <p className="text-xs text-gray-600 ml-2">
-                                                {typeof subsection.content ===
-                                                "string"
-                                                  ? subsection.content
-                                                  : JSON.stringify(
-                                                      subsection.content
-                                                    )}
-                                              </p>
-                                            )}
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-                                  )}
                               </div>
                             )
                           )}
                         </div>
                       </div>
-                    )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* <h3 className="font-semibold text-lg">
+                      {selectedItem.data.title || "Generated Manual"}
+                    </h3> */}
 
-                    {selectedItem.data.conclusion && (
-                      <div>
-                        <h4 className="font-medium mb-2">Conclusion:</h4>
-                        <p className="text-sm text-gray-700">
-                          {typeof selectedItem.data.conclusion === "string"
-                            ? selectedItem.data.conclusion
-                            : JSON.stringify(selectedItem.data.conclusion)}
+                      {selectedItem.data.introduction && (
+                        <div>
+                          <h4 className="font-medium mb-2">Introduction:</h4>
+                          {selectedItem.data.introduction.purpose && (
+                            <p className="text-sm text-gray-700 mb-2">
+                              <strong>Purpose:</strong>{" "}
+                              {typeof selectedItem.data.introduction.purpose ===
+                              "string"
+                                ? selectedItem.data.introduction.purpose
+                                : JSON.stringify(
+                                    selectedItem.data.introduction.purpose
+                                  )}
+                            </p>
+                          )}
+                          {selectedItem.data.introduction.audience && (
+                            <p className="text-sm text-gray-700 mb-2">
+                              <strong>Audience:</strong>{" "}
+                              {typeof selectedItem.data.introduction
+                                .audience === "string"
+                                ? selectedItem.data.introduction.audience
+                                : JSON.stringify(
+                                    selectedItem.data.introduction.audience
+                                  )}
+                            </p>
+                          )}
+                          {selectedItem.data.introduction.prerequisites && (
+                            <p className="text-sm text-gray-700">
+                              <strong>Prerequisites:</strong>{" "}
+                              {typeof selectedItem.data.introduction
+                                .prerequisites === "string"
+                                ? selectedItem.data.introduction.prerequisites
+                                : JSON.stringify(
+                                    selectedItem.data.introduction.prerequisites
+                                  )}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {selectedItem.data.sections && (
+                        <div>
+                          <h4 className="font-medium mb-3">Sections:</h4>
+                          <div className="space-y-3">
+                            {selectedItem.data.sections.map(
+                              (section: any, index: number) => (
+                                <div
+                                  key={index}
+                                  className="bg-white p-3 rounded border"
+                                >
+                                  <h5 className="font-medium mb-2">
+                                    {index + 1}.{" "}
+                                    {section.title || `Section ${index + 1}`}
+                                  </h5>
+                                  {section.content && (
+                                    <p className="text-sm text-gray-700 mb-2">
+                                      {typeof section.content === "string"
+                                        ? section.content
+                                        : JSON.stringify(section.content)}
+                                    </p>
+                                  )}
+                                  {section.subsections &&
+                                    section.subsections.length > 0 && (
+                                      <div className="ml-4 space-y-2">
+                                        {section.subsections.map(
+                                          (
+                                            subsection: any,
+                                            subIndex: number
+                                          ) => (
+                                            <div key={subIndex}>
+                                              <h6 className="font-medium text-sm">
+                                                {index + 1}.{subIndex + 1}.{" "}
+                                                {subsection.title ||
+                                                  `Subsection ${subIndex + 1}`}
+                                              </h6>
+                                              {subsection.content && (
+                                                <p className="text-xs text-gray-600 ml-2">
+                                                  {typeof subsection.content ===
+                                                  "string"
+                                                    ? subsection.content
+                                                    : JSON.stringify(
+                                                        subsection.content
+                                                      )}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedItem.data.conclusion && (
+                        <div>
+                          <h4 className="font-medium mb-2">Conclusion:</h4>
+                          <p className="text-sm text-gray-700">
+                            {typeof selectedItem.data.conclusion === "string"
+                              ? selectedItem.data.conclusion
+                              : JSON.stringify(selectedItem.data.conclusion)}
+                          </p>
+                        </div>
+                      )}
+
+                      {selectedItem.data.appendix && (
+                        <div>
+                          <h4 className="font-medium mb-2">Appendix:</h4>
+                          {selectedItem.data.appendix.glossary && (
+                            <p className="text-sm text-gray-700 mb-1">
+                              <strong>Glossary:</strong>{" "}
+                              {typeof selectedItem.data.appendix.glossary ===
+                              "string"
+                                ? selectedItem.data.appendix.glossary
+                                : JSON.stringify(
+                                    selectedItem.data.appendix.glossary
+                                  )}
+                            </p>
+                          )}
+                          {selectedItem.data.appendix.resources && (
+                            <p className="text-sm text-gray-700">
+                              <strong>Resources:</strong>{" "}
+                              {typeof selectedItem.data.appendix.resources ===
+                              "string"
+                                ? selectedItem.data.appendix.resources
+                                : JSON.stringify(
+                                    selectedItem.data.appendix.resources
+                                  )}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`flex-1 overflow-y-auto ${centerPanelScrollbar.scrollbarClasses}`}
+              onScroll={centerPanelScrollbar.handleScroll}
+            >
+              <div className="p-4">
+                {generatedItems.length === 0 ? (
+                  <div className="text-center text-gray-500 mt-8">
+                    <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No generated content yet</p>
+                    <p className="text-sm">
+                      Start a conversation to see results here
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 mb-4">
+                      {/* <ArrowLeft className="h-4 w-4 text-gray-500" /> */}
+                      <span className="text-sm text-gray-600">
+                        Click on an item below to view details
+                      </span>
+                    </div>
+                    {generatedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                          (selectedItem as GeneratedItem | null)?.id === item.id
+                            ? "border-blue-500 bg-blue-300"
+                            : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                        onClick={() => setSelectedItem(item)}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          {getItemIcon(item.type)}
+                          <span className="font-medium text-sm text-gray-900">
+                            {item.title}
+                          </span>
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${
+                              item.type === "quiz"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {item.type}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-1">
+                          {item.preview}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {formatTimestamp(item.timestamp)}
                         </p>
                       </div>
-                    )}
-
-                    {selectedItem.data.appendix && (
-                      <div>
-                        <h4 className="font-medium mb-2">Appendix:</h4>
-                        {selectedItem.data.appendix.glossary && (
-                          <p className="text-sm text-gray-700 mb-1">
-                            <strong>Glossary:</strong>{" "}
-                            {typeof selectedItem.data.appendix.glossary ===
-                            "string"
-                              ? selectedItem.data.appendix.glossary
-                              : JSON.stringify(
-                                  selectedItem.data.appendix.glossary
-                                )}
-                          </p>
-                        )}
-                        {selectedItem.data.appendix.resources && (
-                          <p className="text-sm text-gray-700">
-                            <strong>Resources:</strong>{" "}
-                            {typeof selectedItem.data.appendix.resources ===
-                            "string"
-                              ? selectedItem.data.appendix.resources
-                              : JSON.stringify(
-                                  selectedItem.data.appendix.resources
-                                )}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        ) : (
-          <div
-            className={`flex-1 overflow-y-auto ${centerPanelScrollbar.scrollbarClasses}`}
-            onScroll={centerPanelScrollbar.handleScroll}
-          >
-            <div className="p-4">
-              {generatedItems.length === 0 ? (
-                <div className="text-center text-gray-500 mt-8">
-                  <Bot className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No generated content yet</p>
-                  <p className="text-sm">
-                    Start a conversation to see results here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ArrowLeft className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">
-                      Click on an item below to view details
-                    </span>
-                  </div>
-                  {generatedItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        (selectedItem as GeneratedItem | null)?.id === item.id
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        {getItemIcon(item.type)}
-                        <span className="font-medium text-sm">
-                          {item.title}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className={`text-xs ${
-                            item.type === "quiz"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {item.type}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-600 mb-1">
-                        {item.preview}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {formatTimestamp(item.timestamp)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Right Panel - Main Chat */}
-      <div className="w-1/4 bg-gray-50/90 flex flex-col rounded-[16px]">
-        <div className="p-5 border-b bg-gray-50 rounded-t-[16px]">
-          <div className="flex items-center gap-2 text-gray-900">
-            <Bot className="h-4 w-4" />
-            <h3 className="font-semibold text-sm text-gray-900">
-              AI Assistant
-            </h3>
+      <div
+        className={`${
+          isGeneratedResultsCollapsed ? "w-3/4" : "w-1/4"
+        } bg-gray-50/90 flex flex-col rounded-[16px] transition-all duration-300 ease-in-out`}
+      >
+        <div className="p-[18px] border-b bg-gray-50 rounded-t-[16px]">
+          <div className="flex items-center justify-between text-gray-900">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4" />
+              <h3 className="font-semibold text-sm text-gray-900">
+                AI Assistant
+              </h3>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleGeneratedResultsCollapse}
+              className="h-6 w-6 p-0 hover:bg-gray-200"
+              title={
+                isGeneratedResultsCollapsed
+                  ? "Show Generated Results"
+                  : "Hide Generated Results"
+              }
+            >
+              {isGeneratedResultsCollapsed ? (
+                <ChevronLeft className="h-5 w-5 text-gray-600" />
+              ) : (
+                <ChevronRight className="h-5 w-5 text-gray-600" />
+              )}
+            </Button>
           </div>
         </div>
 
